@@ -2,18 +2,32 @@ program hamiltonian
   implicit none
   integer:: a, b, c, i, j, k, nsiti,nso, count, ne, n, lda, lwork, info, nf
   integer,allocatable:: config(:)
-  real*8::ax, ay, az, temp, uc,energy, t, temp2
-  real*8, allocatable:: cord(:,:),rad(:,:,:), pot(:,:), charge(:,:), opera(:,:), ham(:,:), w(:), work(:),eig(:,:)
+  real*8::ax, ay, az, temp, uc,energy, t, temp2, hbar, sx(2,2), sz(2,2), cl, temp66,me
+  real*8, allocatable:: cord(:,:),rad(:,:,:), pot(:,:), charge(:,:), opera(:,:),w(:), work(:),eig(:,:),opera2(:,:)
   logical::bool, bool1
   character*1:: jobz, uplo
-
+  complex*16::cplx,pf
+  complex*16::sy(2,2), spin(2,2)
+  complex*16,allocatable::opera3(:,:), ham(:,:),  mom(:,:)
+  
   nsiti=4
+  hbar=1!6.58d-16
+  me=9.11d-31
+  cl=299792458
   ne=2
-  uc=11.26d0
   nso=nsiti*2
   nf=28
+  cplx=cmplx(0.d0, 1.d0)
+
+ temp66=me*hbar*cl*cl*2d0
+!=========================PARAMETERS=========================
+  uc=11.26d0
   t=2.50d0
-  allocate (cord(nsiti,3),config(nf), charge(nf,nsiti), pot(nsiti,nsiti), rad(3,nsiti,nsiti),opera(nsiti,nsiti), ham(nsiti,nsiti), eig(nsiti,nsiti) )
+  pf=(cplx*t)/(temp66)
+  pf=1
+!============================================================  
+!  write(*,*) pf, temp66
+  allocate (cord(nsiti,3),config(nf), charge(nf,nsiti), pot(nsiti,nsiti), rad(3,nsiti,nsiti),opera(nso,nso), ham(nso,nso), eig(nso,nso),opera2(nso,nso), opera3(nso,nso), mom(nso,nso))
 
 
   open(1,file='geom.dat')
@@ -45,37 +59,44 @@ program hamiltonian
 
 
 
-!!!! PPP part
+!=========================PPP-PART=========================
   ham=0
 
-  !!! Interelectronic interaction
-  do i=1,4
+!!! Interelectronic interaction
+  do i=1,nso
      ham(i,i)=uc
   enddo
 !!!! potential term - Ohno parametrization 
-  do i=1,4
+  do i=2,nso,2
      temp=0
-     do j=1,4
-        temp=temp+(14.397)/((28.794/(2*uc)**2+((cord(i,1)-cord(j,1))**2+(cord(i,2)-cord(j,2))**2)+(cord(i,3)-cord(j,3))**2))**0.5
+     do j=2,nso,2
+        temp=temp+(14.397)/((28.794/(2*uc)**2+((cord(i/2,1)-cord(j/2,1))**2+(cord(i/2,2)-cord(j/2,2))**2)+(cord(i/2,3)-cord(j/2,3))**2))**0.5
      enddo
-     ham(i,i)=ham(i,i)+0.5*temp
+     ham(i,i)=0.5*temp
+     ham(i-1,i-1)=ham(i,i)
   enddo
 
 
-  !!! off-diagonal part
-  do i=1,nsiti-1
-     ham(i,i+1)=-t
-  enddo
-  do i=2,4
-     ham(i,i-1)=-t
-  enddo
 
 
-  do i=1,nsiti
-     write(5,'(<nsiti>(2x,f10.5))')(ham(i,j),j=1,nsiti)
+!!! off-diagonal part
+  do i=1,nso-3,2
+     ham(i,i+2)=-t
+     ham(i+1,i+3)=-t
   enddo
-  close(5)
+  do i=1,nso
+     do j=1,nso
+        if(i.ne.j)then
+           ham(j,i)=ham(i,j)
+        endif
+     enddo
+  enddo
 
+  do i=1,nso
+     write(5,'(<nso>(2x,f10.5))')(ham(i,j),j=1,nso)
+  enddo
+ ! close(5)
+!============================================================
 
   !!! supporting operator - distances between different sites for each dimension (x, y, z)
   do i=1,4
@@ -91,13 +112,40 @@ program hamiltonian
         write(4,'(<nsiti>(2x,f10.5))')(rad(k,i,j),j=1,nsiti)
      enddo
   enddo
+  !pauli matrix
+  sx(1,2)=hbar/2
+  sx(2,1)=sx(1,2)
+
+  sy(1,2)=-hbar/(2*cplx)
+  sy(2,1)=-sy(1,2)
+  
+  sz(1,1)=hbar/2
+  sz(2,2)=hbar/2
+
+   
+  write(6,*) 'SX'
+  do i=1,2
+     write(6,*)(sx(i,j),j=1,2)
+  enddo
 
 
+  write(6,*) 'Sy'
+  do i=1,2
+     write(6,*)(sy(i,j),j=1,2)
+  enddo
 
-!!!! start writing SOC part
+  write(6,*) 'Sz'
+  do i=1,2
+     write(6,*)(sz(i,j),j=1,2)
+  enddo
 
+
+!=========================SOC PART=========================
+
+  opera=0
+
+!!Opera is the matrix containing the vectorials product of nearest-neighbors distances written on the atomic orbitals  
   do i=1,nsiti-1
-
      do j=1,nsiti
         if(i.ne.j)then
            ax=rad(2,i,j)*rad(3,i,i+1)-rad(3,i,j)*rad(2,i,i+1)
@@ -111,7 +159,7 @@ program hamiltonian
 
            opera(i,i+1)=opera(i,i+1)+(dsqrt(temp)**(-3))*dsqrt((ax**2+ay**2+az**2))
            temp2=(dsqrt(temp)**(-3))*dsqrt((ax**2+ay**2+az**2))
-           write(5,*) i, i+1, j, temp, temp2
+           !  write(5,*) i, i+1, j, temp, temp2
         endif
      enddo
   enddo
@@ -130,17 +178,90 @@ program hamiltonian
 
            opera(i,i-1)=opera(i,i-1)+(dsqrt(temp)**(-3))*dsqrt((ax**2+ay**2+az**2))
            temp2=(dsqrt(temp)**(-3))*dsqrt((ax**2+ay**2+az**2))
-           write(6,*) i, i+1, j, temp, temp2
+           write(6,*) i, i-1, j,  temp2
         endif
      enddo
   enddo
-
-
-  write(4,*) 'MATRIX OF CONFIGURATION', 1
+  
+  write(4,*) 'check'
   do i=1,nsiti
      write(4,'(<nsiti>(2x,f10.5))')(opera(i,j),j=1,nsiti)
   enddo
+  
+  !!Opera is the matrix containing the vectorials product of nearest-neighbors distances written on the atomic spin-orbitals  
+  do i=1,nsiti
+     do j=1,nsiti
+        opera2((2*i)-1,2*j-1)=opera(i,j)
+        opera2(2*i,2*j)=opera(i,j)
+     enddo
+  enddo
+
+!!!=========================VECTORIAL PRODUCT SYMMETRIZED
+ !!Mom is opera2 symmetrixed
+  do i=1,nso-3,2
+     mom(i,i+2)=0.5d0*(opera2(i,i+2)+opera2(i+2,i))
+     mom(i+1,i+3)=0.5d0*(opera2(i+1,i+3)+opera2(i+3,i+1))
+     mom(i+2,i)=0.5d0*(opera2(i+2,i)+opera2(i,i+2))
+     mom(i+3,i+1)=0.5d0*(opera2(i+3,i+1)+opera2(i+1,i+3))
+  enddo
+  write(4,*) 'r_aAxr_(a,a+1) simmetrizzato'
+  do i=1,nso
+     write(4,'(<nso>(2x,f10.5))')(mom(i,j),j=1,nso)
+  enddo
+  opera3=0
+  do i=1,nso-3,2
+     opera3(i,i+2)=mom(i,i+2)*(sz(1,1))
+     opera3(i,i+3)=mom(i,i+3)*(sx(1,2)+sy(1,2))
+     opera3(i+1,i+2)=mom(i+1,i+2)*(sx(2,1)+sy(2,1))
+     opera3(i+1,i+3)=mom(i+1,i+3)*(sz(2,2))
+     
+  enddo
+  do i=3,nso-1,2
+     opera3(i,i-2)=mom(i,i-2)*(sz(1,1))
+     opera3(i,i-1)=mom(i,i-1)*(sx(1,2)+sy(1,2))
+     opera3(i+1,i-2)=mom(i+1,i-2)*(sx(2,1)+sy(2,1))
+     opera3(i+1,i-1)=mom(i+1,i-1)*(sz(2,2))
+  enddo
+
+  
+!!$  write(4,*) 'OPERA 2'
+!!$  do i=1,nso
+!!$     
+!!$     write(4,'(<nso>(2x,f10.5))')(opera2(i,j),j=1,nso)
+!!$  enddo
+!!$
+!!$  write(4,*) 'OPERA'
+!!$  do i=1,nso
+!!$     do j=1,nso
+!!$        write(4,*) i, j, opera3(i,j)
+!!$     enddo
+!!$  enddo
+
+!!$
+
+  write(4,*) 'VEC'
+  do i=1,nso
+     do j=1,nso
+        write(4,*) i, j, opera3(i,j)
+     enddo
+  enddo
+  
+  write(4,*) 'SSO-REAL'
+  do i=1,nso
+     write(4,'(<nso>(2x,f10.5))')(dreal(opera3(i,j)),j=1,nso)
+  enddo
+
+  write(4,*) 'SSO-imaginary'
+  do i=1,nso
+     write(4,'(<nso>(2x,f10.5))')(dimag(opera3(i,j)),j=1,nso)
+  enddo
+
+
+
+  
   close(4)
+  stop
+ !============================================================
 
 !!! DIAGONALIZATION
   
@@ -239,3 +360,4 @@ do while (b2.gt.abserr)
 end do
 return
 end subroutine Jacobi
+  
