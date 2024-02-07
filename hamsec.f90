@@ -4,10 +4,10 @@ program hoppingtotal
   character*1:: jobz,uplo
   integer:: lda, lwork,isito,irwork,liwork,info, lrwork, si, sj,nso,conta
   integer,allocatable::iwork(:)
-  integer::nsiti,dim2, i, n, a, b, c, d, ab, cd, p, nf,j, k, l, prima, dopo, nao, ne
+  integer::nsiti,dim2, i, n, a, b, c, d, ab, cd, p, nf,j, k, l, perm, nao, ne
   integer::  temp, m, binarysearch, contasito
   integer,allocatable:: vecconfig(:), occupazioni(:)
-  real*8,allocatable:: cord(:,:),rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:)
+  real*8,allocatable:: cord(:,:),rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:)
   complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:,:)
   real*8,allocatable:: umat(:,:), emat(:,:), corrint(:,:), correx(:,:), vmat(:,:,:),double(:), double2(:,:), dsite(:,:), ssite(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
@@ -39,12 +39,13 @@ program hoppingtotal
 
   open(1,file='basis.dat')
   open(2,file='geom.dat')
+  open(3,file='hamiltonian.dat')
   open(4,file='results.dat')
   open(6,file='check.dat')
   open(7,file='eig.dat')
   
 
-  allocate(vecconfig(dim2), cord(nsiti,3), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti),dist(nsiti,nsiti,3), soc_a(3,nso,nso), soc_b(3,nso, nso), pp(3, nsiti,nsiti),hop(nsiti,nsiti),soc_mono(3,nso,nso),hamsoc(nso,nso))
+  allocate(vecconfig(dim2), cord(nsiti,3), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti),dist(nsiti,nsiti,3), soc_a(3,nso,nso), soc_b(3,nso, nso), pp(3, nsiti,nsiti),hop(nsiti,nsiti),hop2(nso,nso),soc_mono(3,nso,nso),hamsoc(nso,nso))
 
   do i=1,dim2
      read(1,*) vecconfig(i)
@@ -95,129 +96,42 @@ program hoppingtotal
      enddo
      ham(n,n)=0.5*PPP
   enddo
+  !=========================SUPPORTING=========================
+  hop2=0
+  do i=1,nso-2
+     hop2(i,i+2)=t
+  enddo
+!============================================================
+
   do n=1,dim2
-     a=0
-     b=0
-     c=0
-     d=0
-     ab=0
-     cd=0
-
-     do i=0,2*nsiti-4,2
-
-        if(ab.le.3.and.i/2*2.eq.i)then
-           ab=0
-        endif
-
-        if(cd.le.3.and.i/2*2.eq.i)then
-           cd=0
-        endif
-
-        if(i/2*2.eq.i)then
-           a=0;b=0; c=0; d=0
-        endif
-
+     do i=0,nso-3
         bool=btest(vecconfig(n),i)
-        if(bool)then
-           a=1
-        else
-           a=0
-        endif
-
-        bool1=btest(vecconfig(n),i+1)
-        if(bool1)then
-           b=2
-        else
-           b=0
-        endif
-        ab= a+b               !deifinisco ab
-
-        bool2=btest(vecconfig(n),i+2)
-        if(bool2)then
-           c=1
-        else
-           c=0
-        endif
-
-        bool3=btest(vecconfig(n),i+3)
-        if(bool3)then
-           d=2
-        else
-           d=0
-        endif
-
-        cd= c+d               !definisco cd
-
-        if((ab.eq.1).and.(cd.eq.0))then
+        bool1=btest(vecconfig(n),i+2)
+        if(bool.and.(.not.bool1))then
            temp=ibclr(vecconfig(n),i)
            temp=ibset(temp,i+2)
-
            m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0) ham(n,m)=-t
-        endif
+           if(m.ne.0)then
+              perm=0
+              do a=i+1,nso-1
+                 bool2=btest(vecconfig(n),a)
+                 if(bool2)perm=perm+1
+              enddo
+              
+              if(i+2.ne.nso-1)then
+                 do a=i+3,nso-1
+                    bool2=btest(vecconfig(n),a)
+                    if(bool2)perm=perm+1
+                 enddo
+              endif
+              if(perm/2*2.eq.perm)ham(n,m)=hop2(i+1,i+3)
+              if(perm/2*2.ne.perm)ham(n,m)=-hop2(i+1,i+3)
 
-        if((ab.eq.1).and.(cd.eq.2))then
-           temp=ibclr(vecconfig(n),i)
-           temp=ibset(temp,i+2)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=-t
-        endif
-
-        if((ab.eq.2).and.(cd.eq.0))then
-           temp=ibclr(vecconfig(n),i+1)
-           temp=ibset(temp,i+3)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=-t
-        endif
-
-        if((ab.eq.2).and.(cd.eq.1))then
-           temp=ibclr(vecconfig(n),i+1)
-           temp=ibset(temp,i+3)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=+t
-        endif
-
-        if((ab.eq.3).and.(cd.eq.0))then
-           temp=ibclr(vecconfig(n),i)
-           temp=ibset(temp,i+2)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=+t
-        endif
-
-        if((ab.eq.3).and.(cd.eq.2))then
-           temp=ibclr(vecconfig(n),i)
-           temp=ibset(temp,i+2)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=+t
-        endif
-
-        if((ab.eq.3).and.(cd.eq.0))then
-           temp=ibclr(vecconfig(n),i+1)
-           temp=ibset(temp,i+3)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=-t
-        endif
-
-        if((ab.eq.3).and.(cd.eq.1))then
-           temp=ibclr(vecconfig(n),i+1)
-           temp=ibset(temp,i+3)
-
-           m=binarysearch(1,dim2,vecconfig,temp)
-           if(m.ne.0)ham(n,m)=+t
+           endif
         endif
      enddo
   enddo
 
-  open(3,file='hamiltoniano.dat')
-  do i=1,dim2
-     write(3,'(<dim2>(2x,f10.5))')(ham(i,j),j=1,dim2)
-  enddo
   !=========================SUPPORTING=========================
     
   hop=0
@@ -378,130 +292,129 @@ program hoppingtotal
         bool=btest(vecconfig(n),i)
         if(bool)then
            if(2*i/2.eq.i)then
-              do j=i+2,nso-1
+              do j=i+2,i+3
                  bool1=btest(vecconfig(n),j)
                  if(.not.bool1)then
-                    a=0
-                    b=0
+                    perm=0
                     do a=i+1,nso-1 !! calcolo elettroni tra sito di partenza e fine
                        bool2=btest(vecconfig(n),a)
-                       if(bool2)prima=prima+1
+                       if(bool2)perm=perm+1
                     enddo
-
-                    do b=j+1,nso-1 !!calcolo elettroni tra sito di arrivo e fine
-                       bool3=btest(vecconfig(n),b)
-                       if(bool3)dopo=dopo+1
-                    enddo
+                    if(j.ne.7)then
+                       do a=j+1,nso-1 !!calcolo elettroni tra sito di arrivo e fine
+                          bool3=btest(vecconfig(n),a)
+                          if(bool3)perm=perm+1
+                       enddo
+                    endif
 
                     temp=ibclr(vecconfig(n),i)
                     temp=ibset(temp,j)
   
                     m=binarysearch(1,dim2,vecconfig,temp)
-                 endif
-              
-                 if(2*(prima+dopo)/2.ne.(prima+dopo))then
+                              
+                 if(2*perm/2.ne.perm)then
                     ham(n,m)=ham(n,m)-pf*hamsoc(i+1,j+1)
                  else
                     ham(n,m)=ham(n,m)+pf*hamsoc(i+1,j+1)
                  endif
-              enddo
-           else
-              do j=i+1,nso-1
-                 bool1=btest(vecconfig(n),j)
-                 if(.not.bool1)then
-                    a=0
-                    b=0
-                    do a=i+1,nso-1 !! calcolo elettroni tra sito di partenza e fine
-                       bool2=btest(vecconfig(n),a)
-                       if(bool2)prima=prima+1
+                 if(hamsoc(i+1,j+1).ne.0d0)write(77,*) n, m, i+1,j+1
+              endif
+           enddo
+        else
+           do j=i+1,i+2
+              bool1=btest(vecconfig(n),j)
+              if(.not.bool1)then
+                 perm=0
+                 do a=i+1,nso-1 !! calcolo elettroni tra sito di partenza e fine
+                    bool2=btest(vecconfig(n),a)
+                    if(bool2)perm=perm+1
+                 enddo
+                 if(j.ne.7)then
+                    do a=j+1,nso-1 !!calcolo elettroni tra sito di arrivo e fine
+                       bool3=btest(vecconfig(n),a)
+                       if(bool3)perm=perm+1
                     enddo
-                 
-                    do b=j+1,nso-1 !!calcolo elettroni tra sito di arrivo e fine
-                       bool3=btest(vecconfig(n),b)
-                       if(bool3)dopo=dopo+1
-                    enddo
-                    temp=ibclr(vecconfig(n),i)
-                    temp=ibset(temp,j)
-
-                    m=binarysearch(1,dim2,vecconfig,temp)
                  endif
+                 temp=ibclr(vecconfig(n),i)
+                 temp=ibset(temp,j)
 
-                 if(2*(prima+dopo)/2.ne.(prima+dopo))then
+                 m=binarysearch(1,dim2,vecconfig,temp)
+
+                 if(2*perm/2.ne.perm)then
                     ham(n,m)=ham(n,m)-pf*hamsoc(i+1,j+1)
                  else
                     ham(n,m)=ham(n,m)+pf*hamsoc(i+1,j+1)
                  endif
-              enddo
-           endif
+                 if(hamsoc(i+1,j+1).ne.0d0)write(77,*) n, m, i+1,j+1
+              endif
+           enddo
         endif
-     enddo
+     endif
   enddo
-
-
-
-
-  open(11,file='real.dat')
-  open(22,file='imag.dat')
-           
-  do i = 1,dim2
-     write(11,'(<dim2>(2x,f10.5))') (dreal(ham(i,j)),j = 1,dim2)
-     write(22,'(<dim2>(2x,f10.5))') (dimag(ham(i,j)),j = 1,dim2)
-  end do
-
-  do i=1,dim2
-     do j=1,dim2
-        if(dabs(dimag(ham(i,j))).ge.1d-17)then
-          write(*,*) i, j, dimag(ham(i,j))
-        endif
-     enddo
-  enddo
-
-
-
-
-  
-  !=========================DIAGONALIZATION=========================
-  jobz ='V'
-  uplo='U'
-  lrwork=(1+5*nf+2*nf**2)
-  liwork=(3+5*nf)
-  lwork=(2*nf+nf**2)
-  allocate(w(nf),work(max(1,lwork)),rwork(lrwork),iwork(max(1,liwork)))
-
-  call zheevd (jobz, uplo, nf, ham, nf, w, work, lwork,rwork,lrwork,iwork,liwork,info)
-
-  write(4,*) 'EIGENVALUES'
-  do i=1,nf
-     write(7,*) w(i)-w(1)
-     write(4,*) i, w(i)
-  enddo
-
-  write(4,*) 'REAL EIGENVECTORS'
-  do i=1,nf
-     write(4,'(<nf>(2x,f10.5))')(dreal(ham(i,j)),j=1,nf)
-  enddo
-
-  write(4,*) 'IMAGINARY EIGENVECTORS'
-  do i=1,nf
-     write(4,'(<nf>(2x,f10.5))')(dimag(ham(i,j)),j=1,nf)
-  enddo
+enddo
+write(3,*) 'REAL HAMILTONIAN'
+do i = 1,dim2
+   write(3,'(<dim2>(2x,f10.5))') (dreal(ham(i,j)),j = 1,dim2)
+enddo
+write(3,*) 'IMAGINARY HAMILTONIAN'
+do i=1,dim2
+   write(3,'(<dim2>(2x,f10.5))') (dimag(ham(i,j)),j = 1,dim2)
+end do
+!!$
+!!$do i=1,dim2
+!!$   do j=1,dim2
+!!$      if(dabs(dimag(ham(i,j))).ge.1d-17)then
+!!$         write(*,*) i, j, dimag(ham(i,j))
+!!$      endif
+!!$   enddo
+!!$enddo
 
 
 
 
 
+!=========================DIAGONALIZATION=========================
+jobz ='V'
+uplo='U'
+lrwork=(1+5*nf+2*nf**2)
+liwork=(3+5*nf)
+lwork=(2*nf+nf**2)
+allocate(w(nf),work(max(1,lwork)),rwork(lrwork),iwork(max(1,liwork)))
 
-  
+call zheevd (jobz, uplo, nf, ham, nf, w, work, lwork,rwork,lrwork,iwork,liwork,info)
+
+write(4,*) 'EIGENVALUES'
+do i=1,nf
+   write(7,*) w(i)-w(1)
+   write(4,*) i, w(i)
+enddo
+
+write(4,*) 'REAL EIGENVECTORS'
+do i=1,nf
+   write(4,'(<nf>(2x,f10.5))')(dreal(ham(i,j)),j=1,nf)
+enddo
+
+write(4,*) 'IMAGINARY EIGENVECTORS'
+do i=1,nf
+   write(4,'(<nf>(2x,f10.5))')(dimag(ham(i,j)),j=1,nf)
+enddo
+
+
+
+
+
+
+
 contains
-  function cross_product(v1, v2) result(result_vector)
-    implicit none
-    complex*16, dimension(3), intent(in) :: v1, v2
-    complex*16, dimension(3) :: result_vector
+function cross_product(v1, v2) result(result_vector)
+  implicit none
+  complex*16, dimension(3), intent(in) :: v1, v2
+  complex*16, dimension(3) :: result_vector
 
-    result_vector(1) = v1(2) * v2(3) - v1(3) * v2(2)
-    result_vector(2) = v1(3) * v2(1) - v1(1) * v2(3)
-    result_vector(3) = v1(1) * v2(2) - v1(2) * v2(1)
-  end function cross_product
+  result_vector(1) = v1(2) * v2(3) - v1(3) * v2(2)
+  result_vector(2) = v1(3) * v2(1) - v1(1) * v2(3)
+  result_vector(3) = v1(1) * v2(2) - v1(2) * v2(1)
+end function cross_product
 
 end program
 
@@ -515,47 +428,47 @@ integer function binarysearch(i, length, array, val)
   ! assume x1 = x2
   ! endif
 
-  implicit none
+implicit none
 
-  integer, intent(in) :: length, i
-  integer, dimension(length), intent(in) :: array
-  integer, intent(in) :: val
+integer, intent(in) :: length, i
+integer, dimension(length), intent(in) :: array
+integer, intent(in) :: val
 
-  !integer :: binarysearch
+!integer :: binarysearch
 
-  integer :: left, middle, right
+integer :: left, middle, right
 
-  left = i
-  right = length
-  binarysearch=0
+left = i
+right = length
+binarysearch=0
 
 
-  if (val.lt.array(left) .or. val.gt.array(right)) go to 10
+if (val.lt.array(left) .or. val.gt.array(right)) go to 10
 
-  do
+do
 
-     if (left .gt. right) then
-        exit
-        !write(*,*) 'ERRORE!!!'
-     endif
+   if (left .gt. right) then
+      exit
+      !write(*,*) 'ERRORE!!!'
+   endif
 
-     !divisione=((left+right) / 2.0)
-     !middle = jnint(divisione)
-     middle=(left+right)/2
+   !divisione=((left+right) / 2.0)
+   !middle = jnint(divisione)
+   middle=(left+right)/2
 
-     if ( array(middle) .eq. val ) then
-        binarySearch = middle
-        return
-     else 
-        if (array(middle) .gt. val) then
-           right = middle - 1
-        else
-           left = middle + 1
-        end if
-     end if
-  end do
+   if ( array(middle) .eq. val ) then
+      binarySearch = middle
+      return
+   else 
+      if (array(middle) .gt. val) then
+         right = middle - 1
+      else
+         left = middle + 1
+      end if
+   end if
+end do
 
-  binarysearch = right
+binarysearch = right
 10 continue
 end function binarysearch
 
