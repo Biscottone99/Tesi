@@ -7,9 +7,9 @@ program breit
   integer::nsiti,dim2, i, n, a, b, c, d, ab, cd, p, nf,j, k, l, perm, nao, ne
   integer::  temp, m, binarysearch, contasito
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:), search(:)
-  real*8,allocatable:: cord(:,:),rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), q(:), u(:),esite(:)
+  real*8,allocatable:: cord(:,:),rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), q(:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:)
   complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:,:), coup(:,:), COUPLING(:,:)
-  real*8,allocatable:: umat(:,:), emat(:,:), corrint(:,:), correx(:,:), vmat(:,:,:),double(:), double2(:,:), dsite(:,:), ssite(:), spin3(:), spin2(:), sz(:), gigi(:)
+  real*8,allocatable:: umat(:,:), emat(:,:), corrint(:,:), correx(:,:), vmat(:,:,:),double(:), double2(:,:), dsite(:,:), ssite(:), spin3(:), spin2(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3
   real*8::strenght,hbar,hbarev,echarge,emass,dpg, bubu, balu, delta, gamma, gamma2, tollerance
@@ -19,10 +19,10 @@ program breit
   
  
   nsiti=4
-  ne=2
+  ne=4
   
-  Uc=4d0
-  t=1.d0
+  Uc=6d0
+  t=0.6d0
   nso=nsiti*2
   me=9.1093837015d-31
   gs=2.00231930436256
@@ -45,50 +45,82 @@ program breit
   open(7,file='eig.dat')
   open(8,FILE='charges.dat')
   open(9,file='work.dat')
-  open(11,file='spin.dat')
   open(10,file='dim2.dat')
   read(10,*) dim2
   close(10)
   nf=dim2
 
-  allocate(vecconfig(dim2), cord(nsiti,3), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti),dist(nsiti,nsiti,3), soc_a(3,nso,nso), soc_b(3,nso, nso), pp(3, nsiti,nsiti),hop(nsiti,nsiti),hop2(nso,nso),soc_mono(3,nso,nso),hamsoc(nso,nso), spintot(dim2), carica(nsiti,dim2), q(dim2), nz(nsiti), u(nsiti), esite(nsiti), coup(dim2,dim2), COUPLING(DIM2, dim2), spar(dim2,dim2), spin3(dim2), spin2(dim2), state(dim2),search(dim2), sz(dim2),gigi(dim2))
+  allocate(vecconfig(dim2), cord(nsiti,3), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti),dist(nsiti,nsiti,3), soc_a(3,nso,nso), soc_b(3,nso, nso), pp(3, nsiti,nsiti),hop(nsiti,nsiti),hop2(nso,nso),soc_mono(3,nso,nso),hamsoc(nso,nso), spintot(dim2), carica(nsiti,dim2), q(dim2), nz(nsiti), u(nsiti), esite(nsiti), coup(dim2,dim2), COUPLING(DIM2, dim2), spar(dim2,dim2), spin3(dim2), spin2(dim2), state(dim2),search(dim2), dipole(dim2,nsiti))
 
   do i=1,dim2
      read(1,*) vecconfig(i)
-     read(11,*) sz(i)
   enddo
-  
+
   do i=1,dim2
      search(i)=vecconfig(i)
   enddo
-
-  
-  u=uc
+ 
+  do i=1,nsiti
+     u(i)=uc
+  enddo
   esite=0
-!!$  U(2)=uc
-!!$  U(3)=u(2)
-!!$  u(1)=-delta
-!!$  u(4)=+delta
-!!$
 
-  esite(1)=-8d0
-  esite(4)=-2d0
+  esite(2)=0!2d0
+  esite(3)=esite(2)
+  esite(1)=-4d0
+  esite(4)=+4d0
   
 !!$  do i=2,4
 !!$     u(i)=0
 !!$  enddo
-
+  do i=2,3
+     nz(i)=1
+  enddo
   nz(4)=0
   nz(1)=2
   
 
   do i=1,nsiti
      read(2,*) cord(i,1), cord(i,2), cord(i,3)
+     write(*,*) cord(i,1), cord(i,2), cord(i,3)
   enddo
   rewind(2)
   do i=1,nsiti
      read(2,*) nuclei(i,1), nuclei(i,2), nuclei(i,3)
   enddo
+
+  !=========================CHARGES AND DIPOLE MOMENT=========================
+  carica=0
+  do n=1,dim2
+     do i=0,nso-1,2
+        bool=btest(vecconfig(n),i)
+        bool1=btest(vecconfig(n),i+1)
+        if(bool)then
+           a=1
+        else
+           a=0
+        endif
+        if(bool1)then
+           b=1
+        else
+           b=0
+        endif
+        carica((i+2)/2,n)=nz((i+2)/2)-(a+b)
+     enddo
+  enddo
+
+  dipole=0
+  do n=1,dim2
+     do k=1,3
+        do j=1,nsiti
+           dipole(n,k)=dipole(n,k)+carica(j,n)*nuclei(j,k)
+        enddo
+     enddo
+  enddo
+
+
+  !============================================================
+  
 
 
   do i=1,nsiti
@@ -122,7 +154,7 @@ program breit
      PPP=0.d0
      do i=1,nsiti
         do p=1,nsiti
-           PPP=PPP+(14.397)/((28.794/(u(i)-u(p)))**2+((cord(i,1)-cord(p,1))**2+(cord(i,2)-cord(p,2))**2+(cord(i,3)-cord(p,3))))**0.5*(nz(i)-occupazioni(i))*(nz(p)-occupazioni(p))
+           if(i.ne.p) PPP=PPP+(14.397)/((28.794/(u(i)+u(p)))**2+((cord(i,1)-cord(p,1))**2+(cord(i,2)-cord(p,2))**2+(cord(i,3)-cord(p,3))))**0.5*(nz(i)-occupazioni(i))*(nz(p)-occupazioni(p))
         enddo
      enddo
      ham(n,n)=0.5*PPP
@@ -134,7 +166,7 @@ program breit
         bool1=btest(vecconfig(n),i+1)
         if(bool)ham(n,n)=ham(n,n)+esite((i+2)/2)
         if(bool1)ham(n,n)=ham(n,n)+esite((i+2)/2)
-        if(bool.and.bool1)ham(n,n)=ham(n,n)+u((i+2)/2)
+        if((bool).and.(bool1))ham(n,n)=ham(n,n)+u((i+2)/2)
      enddo
   enddo
         
@@ -200,14 +232,6 @@ program breit
         enddo
      enddo
   enddo
-
-  do k=1,3
-     write(6,*) 'momentum dimension', k
-     do i=1,nsiti
-        write(6,'(<nsiti>(2x,f10.5))') (dimag(pp(k,i,j)), j=1,nsiti)
-     enddo
-  enddo
-  
   !pauli matrix
   spin(1,2,1)=1d0
   spin(2,1,1)=1d0
@@ -229,7 +253,6 @@ program breit
                  vec1(k) = nuclei((i+1)/2,k) - nuclei(isito,k) !position
                  vec2(k) = pp(k,(i+1)/2,(j+1)/2) !momentum
               end do
-             ! write(*,*) dimag(vec2)
               cp  = cross_product(vec1, vec2)
 
               ! 1/|r_aA|^3 term
@@ -272,9 +295,8 @@ program breit
                  vec1(k) = nuclei((j+1)/2,k) - nuclei(isito,k) !position
                  vec2(k) = pp(k,(i+1)/2,(j+1)/2) !momentum
               end do
-              
               cp  = cross_product(vec1, vec2)
-           
+
               ! 1/|r_aA|^3 term
               radius = 0.d0
               do k = 1,3
@@ -297,7 +319,6 @@ program breit
 
               do k = 1,3
                  soc_b(k,i,j) = soc_b(k,i,j) + cp(k)  * spin(si,sj,k)
-                 !write(*,*) cp(k)!soc_b(k,i,j)
               end do
            end if
         end do
@@ -324,23 +345,16 @@ program breit
         enddo
      enddo
   enddo
-!!$  write(6,*) 'REAL HAMSOC'
-!!$  do i=1,nso
-!!$     write(6,'(<dim2>(2x,f10.5))') (dreal(hamsoc(i,j)),j = 1,nso)
-!!$  enddo
-!!$
-!!$  write(6,*) 'IMAG HAMSOC'
-!!$  do i=1,nso
-!!$     write(6,'(<dim2>(2x,f10.5))') (dimag(hamsoc(i,j)),j = 1,nso)
-!!$  enddo
-
-  write(6,*) 'HAMSOC'
+  write(6,*) 'REAL HAMSOC'
   do i=1,nso
-     do j=1,nso
-        if(zabs(hamsoc(i,j)).ge.1d-10)write(6,*) i, j, hamsoc(i,j)
-     enddo
+     write(6,'(<dim2>(2x,f10.5))') (dreal(hamsoc(i,j)),j = 1,nso)
   enddo
-  
+
+  write(6,*) 'IMAG HAMSOC'
+  do i=1,nso
+     write(6,'(<dim2>(2x,f10.5))') (dimag(hamsoc(i,j)),j = 1,nso)
+  enddo
+
   write(6,*) 'REAL HAM'
   do i=1,dim2
      write(6,'(<dim2>(2x,f10.5))') (dreal(ham(i,j)),j = 1,dim2)
@@ -463,15 +477,15 @@ do i=1,nf
    write(4,*) i, w(i)
 enddo
 
-write(4,*) 'REAL EIGENVECTORS'
-do i=1,nf
-   write(4,'(<nf>(2x,f10.5))')(dreal(ham(i,j)),j=1,nf)
-enddo
-
-write(4,*) 'IMAGINARY EIGENVECTORS'
-do i=1,nf
-   write(4,'(<nf>(2x,f10.5))')(dimag(ham(i,j)),j=1,nf)
-enddo
+!!$write(4,*) 'REAL EIGENVECTORS'
+!!$do i=1,nf
+!!$   write(4,'(<nf>(2x,f10.5))')(dreal(ham(i,j)),j=1,nf)
+!!$enddo
+!!$
+!!$write(4,*) 'IMAGINARY EIGENVECTORS'
+!!$do i=1,nf
+!!$   write(4,'(<nf>(2x,f10.5))')(dimag(ham(i,j)),j=1,nf)
+!!$enddo
 !=========================COUPLING=========================
 do i=1,dim2 !a
    do l=1,dim2 !b
@@ -494,50 +508,51 @@ do i=1,dim2
    write(77,'(<dim2>(2x,f10.5))') (dreal(coup(i,j)),j = 1,dim2)
 enddo
 
-
 !=========================CHARGES=========================
-
-do n=1,dim2
-   do i=0,nso-1,2
-      do m=1,dim2
-         bool=btest(vecconfig(m),i)
-         bool1=btest(vecconfig(m),i+1)
-         if(bool)then
-            a=1
-         else
-            a=0
-         endif
-         if(bool1)then
-            b=1
-         else
-            b=0
-         endif
-         carica((i+2)/2,n)=carica((i+2)/2,n)+(nz((i+2)/2)-a-b)*(zabs(ham(m,n)))**2
+allocate(charges(nsiti,dim2))
+do i=1,dim2 !a
+   do j=1,dim2 !alfa
+      do k=1,nsiti
+         charges(k,i)=charges(k,i)+dconjg(ham(j,i))*ham(j,i)*carica(k,j)
       enddo
    enddo
 enddo
 
-do n=1,dim2
-   do i=1,nsiti
-      q(n)=q(n)+carica(i,n)
-   enddo
-enddo
-
-
 write(4,*) 'CARICA'
 
 do i=1,nsiti
-   write(4,'(<dim2>(2x,f10.5))') (carica(i,j), j=1,dim2 )
+   write(4,'(<dim2>(2x,f10.5))') (charges(i,j), j=1,10 )
    
 enddo
 
 do i=1,nsiti
-   write(8,'(<2>(2x,f10.5))') (carica(i,j), j=1,2)
+   write(8,'(<2>(2x,f10.5))') (charges(i,j), j=1,2)
 enddo
 
 do i=1,2
    do j=1,nsiti
-      write(9,*) carica(j,i)
+      write(9,*) charges(j,i)
+   enddo
+enddo
+!=========================DIPOLE MOMENT=========================
+allocate(mu(dim2,dim2,3))
+mu=0
+
+do i=1,dim2 !a
+   do l=1,dim2 !b
+      do j=1,dim2 !alfa 
+         do a=1,3
+            mu(i,l,a)=mu(i,l,a)+dconjg(ham(j,i))*ham(j,l)*dipole(j,a)
+         enddo
+      enddo
+   enddo
+enddo
+
+write(4,*) "dipole moment"
+do a=1,3
+   write(4,*) 'DIpole k=',a
+   do i=1,10
+      write(4,'(<10>(2x,f10.5))') (mu(i,j,a), j=1,10)
    enddo
 enddo
 
@@ -570,8 +585,6 @@ tollerance=1d-8
 do i = 1, dim2
    if (count(abs(w - w(i)) < tollerance) == 3) then
       state(i) = 'T'
-   else if (count(abs(w - w(i)) < tollerance) == 2) then
-      state(i) = 'D'
    elseif (count(abs(w - w(i)) < tollerance) == 5) then
       state(i) = 'Q'
    else
@@ -593,14 +606,17 @@ do i=1,dim2
    enddo
 enddo
 
-do i=1,6
-   write(4,*) 'Configuration=', i, state(i), gigi(i)
+do i=1,10
+   write(4,*) 'Configuration=', i, state(i)
    do j=1,dim2
       if(spar(i,j).ne.0)then
-         write(4,*) j, state(j), gigi(j), zabs(coupling(i,j))
+         write(4,*) j, state(j), zabs(coupling(i,j))
       endif
    enddo
 enddo
+
+
+
          
 !============================================================
 
@@ -639,9 +655,6 @@ recursive function binary_search(arr, target, low, high) result(index)
     end if
    end function binary_search
 
-
-
-   
 end program
 
 !__________________________________________________
