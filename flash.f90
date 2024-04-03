@@ -1,4 +1,3 @@
-
 program flash
 use module
 
@@ -11,7 +10,7 @@ use module
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:)
   real*8,allocatable:: rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:), mualpha(:,:), dist2(:,:), mubeta(:,:)
   real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:)
-  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hssotb2(:,:,:,:,:)
+  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hssotb2(:,:,:,:,:),ssotb2(:,:,:,:)
   real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
@@ -385,7 +384,7 @@ use module
   
   coup=pf*coup
   !=========================TWO TERM SS0=========================
-allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),sso(dim2,dim2),hssotb2(3,nso,nso,nso,nso))
+allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),sso(dim2,dim2),hssotb2(3,nso,nso,nso,nso),ssotb2(nso,nso,nso,nso))
   dist=0
   do i=1,nsiti
      do j=1,nsiti
@@ -395,11 +394,12 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
      enddo
   enddo
   hssotb=0
+  hssotb2=0
   do a=1,nso
      do b=1,nso
         do c=1,nso
            do d=1,nso
-              if((b+1)/2.ne.(d+1)/2)then
+              if(((b+1)/2.ne.(d+1)/2).and.((a+1)/2.ne.(b+1)/2))then
                  vec1=0
                  vec2=0
                  cp=0
@@ -408,11 +408,11 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
                     vec2(k)=ppso(k,a,c)
                  enddo
                  cp=cross_product(vec1,vec2)
-                 write(*,*) cp
+                ! write(*,*) cp
 !!$               ! 1/|r_aA|^3 term
                  radius = 0.d0
                  do k = 1,3
-                    radius = radius + dreal(vec2(k))**2
+                    radius = radius + dreal(vec1(k))**2
                  end do
                  radius = (dsqrt(radius))**3
                 ! write(*,*) radius
@@ -430,72 +430,35 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
                  endif
 
                  do k=1,3
-                    hssotb(k,a,b,c,d)=hssotb(k,a,b,c,d)+cp*spin(si,sj,k)
+                    hssotb(k,a,b,c,d)=hssotb(k,a,b,c,d)+cp(k)*spin(si,sj,k)
+                   ! write(*,*) hssotb(k,a,b,c,d)
                  enddo
-                 
+                 do k=3,3
+                    hssotb2(k,a,b,c,d)=hssotb2(k,a,b,c,d)+cp(k)*spin(si,sj,k)
+                   ! write(*,*) 'z=',hssotb2(k,a,b,c,d)
+                 enddo
               endif
            enddo
         enddo
      enddo
   enddo
 
-!!$  hssotb2=0
-!!$  do a=1,nso
-!!$     do b=1,nso
-!!$        do c=1,nso
-!!$           do d=1,nso
-!!$              if ((c+1)/2.ne.(b+1)/2) then 
-!!$                 ! r x p cross product
-!!$                 vec1 = (0.d0, 0.d0)
-!!$                 vec2 = (0.d0, 0.d0)
-!!$                 cp=0
-!!$                 do k = 1,3
-!!$                    vec2(k) = dist((c+1)/2,(b+1)/2,k) !position
-!!$                    vec1(k) = ppso(k,a,c) !momentum
-!!$                 end do
-!!$                 cp  = cross_product(vec1, vec2)
-!!$                 
-!!$                 
-!!$                 
-!!$                 ! 1/|r_aA|^3 term
-!!$                 radius = 0.d0
-!!$                 do k = 1,3
-!!$                    radius = radius + dreal(vec2(k))**2
-!!$                 end do
-!!$                 radius = (dsqrt(radius))**3
-!!$                ! write(*,*) radius
-!!$                 cp = cp / radius
-!!$                 !write(*,*) cp
-!!$                 if(a/2*2.eq.A)then
-!!$                    si = 2
-!!$                 else
-!!$                    si=1
-!!$                 endif
-!!$
-!!$                 if(c/2*2.eq.c)then
-!!$                    sj = 2
-!!$                 else
-!!$                    sj=1
-!!$                 endif
-!!$
-!!$                 do k = 1,3
-!!$                    hssotb2(k,a,b,c,d) = hssotb2(k,a,b,c,d) + cp(k)  * spin(si,sj,k)
-!!$                   ! write(*,*)hssotb2(k,a,b,c,d)
-!!$                 end do
-!!$              end if
-!!$           enddo
-!!$        enddo
-!!$     enddo
-!!$  enddo
 !!$
   ssotb=0
+  ssotb2=0
   do k=1,3
      do a=1,nso
         do b=1,nso
            do c=1,nso
               do d=1,nso
                  !ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)-hssotb2(k,a,b,c,d))
-                 ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)+dconjg(hssotb(k,a,b,c,d)))
+                 If(dreal(hssotb(k,a,b,c,d)).ne.0) write(*,*) hssotb(k,a,b,c,d)
+                 If(dreal(hssotb(k,a,b,c,d)).ne.0) write(*,*) hssotb(k,a,b,c,d)
+
+                 ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)+dconjg(hssotb(k,c,d,a,b)))
+                 ssotb2(a,b,c,d)=ssotb2(a,b,c,d)+0.5d0*(hssotb2(k,a,b,c,d)+dconjg(hssotb2(k,c,d,a,b)))
+
+               !  if(zabs(ssotb(a,b,c,d)).ge.1d-12)write(*,*) ssotb(a,b,c,d)
               enddo
            enddo
         enddo
@@ -506,15 +469,14 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
      do b=1,nso
         do c=1,nso
            do d=1,nso
-              if( zabs( ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b))).ge.1d-15)!write(*,*)'occhio', a, b, c ,d,zabs( ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b)))
+              if(zabs(ssotb(a,b,c,d)-ssotb2(a,b,c,d)).ge.1d-10)write(*,*) a, b, c, d, zabs(ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b)))
+              
            enddo
         enddo
      enddo
   enddo
 !!$
-  call check_q(ssotb,nso,bool)
-  if(.not.bool)write(*,*) 'no'
- 
+  
   !Inizio a passare dal tb al real space
 
   do n=1,dim2
@@ -537,7 +499,7 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
                  else
                     phase=-1
                  endif
-                 sso(n,m)=phase*ssotb(i+1,j+1,k+1,l+1)
+                 sso(n,m)=pf*phase*ssotb(i+1,j+1,k+1,l+1)
               enddo
            enddo
         enddo
