@@ -10,7 +10,7 @@ use module
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:)
   real*8,allocatable:: rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:), mualpha(:,:), dist2(:,:), mubeta(:,:)
   real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:)
-  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hssotb2(:,:,:,:,:),ssotb2(:,:,:,:)
+  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:)
   real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
@@ -384,7 +384,8 @@ use module
   
   coup=pf*coup
   !=========================TWO TERM SS0=========================
-allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),sso(dim2,dim2),hssotb2(3,nso,nso,nso,nso),ssotb2(nso,nso,nso,nso))
+  !SSO TERM
+  allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),sso(dim2,dim2))
   dist=0
   do i=1,nsiti
      do j=1,nsiti
@@ -394,12 +395,12 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
      enddo
   enddo
   hssotb=0
-  hssotb2=0
+ 
   do a=1,nso
      do b=1,nso
         do c=1,nso
            do d=1,nso
-              if(((b+1)/2.ne.(d+1)/2).and.((a+1)/2.ne.(b+1)/2))then
+              if((b.eq.d).and.((a+1)/2.ne.(b+1)/2))then
                  vec1=0
                  vec2=0
                  cp=0
@@ -408,8 +409,8 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
                     vec2(k)=ppso(k,a,c)
                  enddo
                  cp=cross_product(vec1,vec2)
-                ! write(*,*) cp
-!!$               ! 1/|r_aA|^3 term
+                 ! write(*,*) cp
+                 ! 1/|r_aA|^3 term
                  radius = 0.d0
                  do k = 1,3
                     radius = radius + dreal(vec1(k))**2
@@ -428,15 +429,12 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
                  else
                     sj=1
                  endif
-
+                
                  do k=1,3
                     hssotb(k,a,b,c,d)=hssotb(k,a,b,c,d)+cp(k)*spin(si,sj,k)
-                   ! write(*,*) hssotb(k,a,b,c,d)
+                    ! write(*,*) hssotb(k,a,b,c,d)
                  enddo
-                 do k=3,3
-                    hssotb2(k,a,b,c,d)=hssotb2(k,a,b,c,d)+cp(k)*spin(si,sj,k)
-                   ! write(*,*) 'z=',hssotb2(k,a,b,c,d)
-                 enddo
+                 
               endif
            enddo
         enddo
@@ -445,32 +443,26 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
 
 !!$
   ssotb=0
-  ssotb2=0
+  
   do k=1,3
      do a=1,nso
         do b=1,nso
            do c=1,nso
               do d=1,nso
-                 !ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)-hssotb2(k,a,b,c,d))
-                 If(dreal(hssotb(k,a,b,c,d)).ne.0) write(*,*) hssotb(k,a,b,c,d)
-                 If(dreal(hssotb(k,a,b,c,d)).ne.0) write(*,*) hssotb(k,a,b,c,d)
-
                  ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)+dconjg(hssotb(k,c,d,a,b)))
-                 ssotb2(a,b,c,d)=ssotb2(a,b,c,d)+0.5d0*(hssotb2(k,a,b,c,d)+dconjg(hssotb2(k,c,d,a,b)))
-
-               !  if(zabs(ssotb(a,b,c,d)).ge.1d-12)write(*,*) ssotb(a,b,c,d)
+                
               enddo
            enddo
         enddo
      enddo
   enddo
 
+
   do a=1,nso
      do b=1,nso
         do c=1,nso
            do d=1,nso
-              if(zabs(ssotb(a,b,c,d)-ssotb2(a,b,c,d)).ge.1d-10)write(*,*) a, b, c, d, zabs(ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b)))
-              
+              if(zabs(ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b))).ge.1d-10)write(*,*) a, b, c, d, zabs(ssotb(a,b,c,d)-dconjg(ssotb(c,d,a,b)))
            enddo
         enddo
      enddo
@@ -478,7 +470,7 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
 !!$
   
   !Inizio a passare dal tb al real space
-
+  sso=0
   do n=1,dim2
      perm=0
      do i=0,nso-1
@@ -507,21 +499,122 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
   enddo
 
 
-!!$  do n=1,dim2
-!!$     do m=1,dim2
-!!$        if(sso(n,m).ne.0)write(*,*) n,m,sso(n,m)
-!!$     enddo
-!!$  enddo
-
   call check_hermitian(sso,dim2,bool)
   if(bool)write(*,*)'bene'
+  !SOO TERM
+  allocate(hsootb(3,nso,nso,nso,nso),sootb(nso,nso,nso,nso),soo(dim2,dim2))
+  hsootb=0
+ 
+  do a=1,nso
+     do b=1,nso
+        do c=1,nso
+           do d=1,nso
+              if(((b+1)/2.eq.(d+1)/2).and.((a+1)/2.ne.(b+1)/2))then
+                 vec1=0
+                 vec2=0
+                 cp=0
+                 do k=1,3
+                    vec1(k)=dist((a+1)/2,(b+1)/2,k)
+                    vec2(k)=ppso(k,a,c)
+                 enddo
+                 cp=cross_product(vec1,vec2)
+                ! write(*,*) cp
+!!$               ! 1/|r_aA|^3 term
+                 radius = 0.d0
+                 do k = 1,3
+                    radius = radius + dreal(vec1(k))**2
+                 end do
+                 radius = (dsqrt(radius))**3
+                ! write(*,*) radius
+                 cp = cp / radius
+                 if(mod(b,2).eq.0)then
+                    si=2
+                 else
+                    si=1
+                 endif
+
+                 if(mod(d,2).eq.0)then
+                    sj=2
+                 else
+                    sj=1
+                 endif
+
+                 do k=1,3
+                    hsootb(k,a,b,c,d)=hsootb(k,a,b,c,d)+cp(k)*spin(si,sj,k)
+                   ! write(*,*) hssotb(k,a,b,c,d)
+                 enddo
+                
+              endif
+           enddo
+        enddo
+     enddo
+  enddo
+
+!!$
+  sootb=0
+ 
+  do k=1,3
+     do a=1,nso
+        do b=1,nso
+           do c=1,nso
+              do d=1,nso
+                 sootb(a,b,c,d)=sootb(a,b,c,d)+0.5d0*(hsootb(k,a,b,c,d)+dconjg(hsootb(k,c,d,a,b)))
+                
+              enddo
+           enddo
+        enddo
+     enddo
+  enddo
+
+  do a=1,nso
+     do b=1,nso
+        do c=1,nso
+           do d=1,nso
+              if(zabs(sootb(a,b,c,d)-dconjg(sootb(c,d,a,b))).ge.1d-10)write(*,*) a, b, c, d, zabs(sootb(a,b,c,d)-dconjg(sootb(c,d,a,b)))
+            !  if(zabs(sootb(a,b,c,d)).ge.1d-10)write(*,*) sootb(a,b,c,d)
+           enddo
+        enddo
+     enddo
+  enddo
+!!$
+  
+  !Inizio a passare dal tb al real space
+  soo=0
+  do n=1,dim2
+     perm=0
+     do i=0,nso-1
+        if(btest(vecconfig(n),i))temp=ibclr(vecconfig(n),i)
+        do j=0,nso-1
+           if(btest(temp,j))temp=ibclr(temp,j)
+           perm=perm+abs(j-i)
+           do k=0,nso-1
+              if(.not.btest(temp,k))temp=ibset(temp,k)
+              perm=perm+abs(j-k)
+              do l=0,nso-1
+                 if(.not.btest(temp,l))temp=ibset(temp,l)
+                 perm=perm+abs(l-k)
+                 m=binary_search(vecconfig, temp, 1, dim2)
+
+                 if(mod(perm,2).eq.0)then
+                    phase=+1
+                 else
+                    phase=-1
+                 endif
+                 soo(n,m)=pf*phase*sootb(i+1,j+1,k+1,l+1)
+              enddo
+           enddo
+        enddo
+     enddo
+  enddo
+  call check_hermitian(soo,dim2,bool)
+  if(bool)write(*,*)'soo bene'
   !============================================================
   allocate(ham2(dim2,dim2))
   !! Adding to hamiltonian
   do n=1,dim2
      ham(n,n)=pot(n)+energy(n)
      do m=1,dim2
-        ham(n,m)=ham(n,m)+1*coup(n,m)-tt(n,m)
+        ham(n,m)=ham(n,m)+1*coup(n,m)-tt(n,m)+soo(n,m)+sso(n,m)
      enddo
   enddo
 
@@ -594,8 +687,8 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
   write(4,*) 'DIPOLE BETA'
   write(4,'(<3>(2x,f10.5))') (murbeta(1,1,k), k=1,3)
 
-  write(4,*) 'DIPOLE ALPHA+BETA'
-  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
+!!$  write(4,*) 'DIPOLE ALPHA+BETA'
+!!$  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
   mu=0
   do i=1,dim2 !a
      do l=1,dim2 !b
@@ -632,7 +725,10 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
      if(.not.bool)write(*,*) 'ERROR PPRB K=',k
 
   enddo
-
+ write(4,*) 'LINEAR MOMENT ALPHA'
+  write(4,'(<3>(2x,f10.5))') (dimag(ppra(k,1,1)), k=1,3)
+  write(4,*) 'LINEAR MOMENT BETA'
+  write(4,'(<3>(2x,f10.5))') (dimag(pprb(k,1,1)), k=1,3)
   
   !=========================CHECK=========================
   w=0
@@ -640,15 +736,14 @@ allocate(dist(nsiti,nsiti,k),hssotb(3,nso,nso,nso,nso),ssotb(nso,nso,nso,nso),ss
   call zheevd (jobz, uplo, dim2, ham2, dim2, w, work, lwork,rwork,lrwork,iwork,liwork,info)
 
   coupling=0
-  do i=1,10
-     write(4,*) w(i)-w(1)
-  enddo
+!!$  do i=1,10
+!!$     write(4,*) w(i)-w(1)
+!!$  enddo
   w2=w
   
   call rotate_cplx_2x2(dim2,coupling,coup,ham2)
   call check_hermitian(coupling, dim2,bool)
-  if(.not.bool)write(*,*) 'Problemi coupling'
-  sqrot2=0
+  if(.not.bool)write(*,*) 'Problemi coupling',  sqrot2=0
   call  rotate_cplx_2x2(dim2,sqrot2,sqrot,ham2)
   singlet=0
   triplet=0
