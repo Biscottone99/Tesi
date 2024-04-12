@@ -9,8 +9,8 @@ use module
   integer::  temp, m, contasito,sitoi, sitoj
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:)
   real*8,allocatable:: rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:), mualpha(:,:), dist2(:,:), mubeta(:,:)
-  real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:)
-  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:)
+  real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:), eig(:,:), spindensity(:,:), sdr(:,:)
+  complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), s(:,:,:), ssq(:,:,:),srot(:,:,:), hopalpha(:,:,:), hopbeta(:,:,:), ppa(:,:,:), ppb(:,:,:), ppra(:,:,:), pprb(:,:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:), soc(:,:), socr(:,:), mono_coup(:,:,:), bi_coup(:,:,:), temporary(:,:,:,:,:), mcrot(:,:,:), bcrot(:,:,:)
   real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
@@ -50,7 +50,7 @@ use module
   close(10)
   
 
-  allocate(vecconfig(dim2), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti), soc_a(3,nso,nso), soc_b(3,nso, nso), hop(nsiti,nsiti),hop2(nso,nso),soc_mono(3,nso,nso),hamsoc(nso,nso), spintot(dim2), carica(dim2,nsiti),nz(nsiti), u(nsiti), esite(nsiti), coup(dim2,dim2), COUPLING(DIM2, dim2), spar(dim2,dim2), spin3(dim2), spin2(dim2), state(dim2), dipole(dim2,3), MUalpha(DIM2,3),ppso(3,nso,nso),tt(dim2,dim2), pot(dim2), energy(dim2),s(3,nso,nso), mubeta(dim2,3),ppa(3,dim2,dim2), ppb(3,dim2,dim2),sqrot(dim2,dim2),sqrot2(dim2,dim2))
+  allocate(vecconfig(dim2), nuclei(nsiti,3),ham(dim2,dim2), occupazioni(nsiti), soc_a(3,nso,nso), soc_b(3,nso, nso), hop(nsiti,nsiti),hop2(nso,nso),soc_mono(3,nso,nso),hamsoc(nso,nso), spintot(dim2), carica(dim2,nsiti),nz(nsiti), u(nsiti), esite(nsiti), coup(dim2,dim2), COUPLING(DIM2, dim2), spar(dim2,dim2), spin3(dim2), spin2(dim2), state(dim2), dipole(dim2,3), MUalpha(DIM2,3),ppso(3,nso,nso),tt(dim2,dim2), pot(dim2), energy(dim2),s(3,nso,nso), mubeta(dim2,3),ppa(3,dim2,dim2), ppb(3,dim2,dim2),sqrot(dim2,dim2),sqrot2(dim2,dim2),soc(dim2,dim2),socr(dim2,dim2))
 !=========================LETTURA INPUT=========================
   do i=1,dim2
      read(1,*) vecconfig(i)
@@ -221,13 +221,26 @@ use module
      call check_hermitian(ppb(k,:,:), dim2, bool1)
      if(.not.bool1)write(*,*) 'ERROR PPb K=',k
   enddo
+  !=========================SPIN DENSITY=========================
+  allocate(spindensity(dim2,nsiti),sdr(dim2,nsiti))
+  spindensity=0
+  do n=1,dim2
+     do i=0,nso-1,2
+        isito=(i+2)/2
+        bool=btest(vecconfig(n),i)
+        if(bool)spindensity(n,isito)=spindensity(n,isito)+1
+        bool1=btest(vecconfig(n),i+1)
+        if(bool1)spindensity(n,isito)=spindensity(n,isito)-1
+     enddo
+  enddo
   
 !=========================SCRITTURA HAM=========================
 
   ham=0
   
-  call ohno (dim2,nsiti,nuclei,vecconfig, u,nz, pot)
-  call site_energy(nso,dim2,esite,vecconfig,energy)
+ ! call ohno (dim2,nsiti,nuclei,vecconfig, u,nz, pot)
+  !call site_energy(nso,dim2,esite,vecconfig,energy)
+  call site_energy_u(nso,dim2,esite,u,vecconfig,energy)
  
   !=========================SPIN-ORBIT COUPLING=========================
   allocate(mom(nsiti,nsiti,3))
@@ -352,6 +365,13 @@ use module
         end do
      end do
   end do
+
+
+  allocate(mono_coup(3,dim2,dim2))
+  mono_coup=0
+  do k=1,3
+     call sq_oe_op_compl(nso,dim2,soc_mono(k,:,:),mono_coup(k,:,:),vecconfig)
+  enddo
   
 
   hamsoc=0d0
@@ -443,6 +463,8 @@ use module
 
 !!$
   ssotb=0
+  allocate(temporary(3,nso,nso,nso,nso))
+  temporary=0
   
   do k=1,3
      do a=1,nso
@@ -450,14 +472,14 @@ use module
            do c=1,nso
               do d=1,nso
                  ssotb(a,b,c,d)=ssotb(a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)+dconjg(hssotb(k,c,d,a,b)))
-                
+                 temporary(k,a,b,c,d)=temporary(k,a,b,c,d)+0.5d0*(hssotb(k,a,b,c,d)+dconjg(hssotb(k,c,d,a,b)))
               enddo
            enddo
         enddo
      enddo
   enddo
 
-
+  
   do a=1,nso
      do b=1,nso
         do c=1,nso
@@ -471,36 +493,9 @@ use module
   
   !Inizio a passare dal tb al real space
   sso=0
-  do n=1,dim2
-     perm=0
-     do i=0,nso-1
-        if(btest(vecconfig(n),i))temp=ibclr(vecconfig(n),i)
-        do j=0,nso-1
-           if(btest(temp,j))temp=ibclr(temp,j)
-           perm=perm+abs(j-i)
-           do k=0,nso-1
-              if(.not.btest(temp,k))temp=ibset(temp,k)
-              perm=perm+abs(j-k)
-              do l=0,nso-1
-                 if(.not.btest(temp,l))temp=ibset(temp,l)
-                 perm=perm+abs(l-k)
-                 m=binary_search(vecconfig, temp, 1, dim2)
-
-                 if(mod(perm,2).eq.0)then
-                    phase=+1
-                 else
-                    phase=-1
-                 endif
-                 sso(n,m)=pf*phase*ssotb(i+1,j+1,k+1,l+1)
-              enddo
-           enddo
-        enddo
-     enddo
-  enddo
-
-
-  call check_hermitian(sso,dim2,bool)
-  if(bool)write(*,*)'bene'
+  call bielectron(dim2,nso,pf,vecconfig,ssotb,sso)
+  call check_hermitian(sso, dim2, bool)
+  if(bool)write(*,*)'sso bene'
   !SOO TERM
   allocate(hsootb(3,nso,nso,nso,nso),sootb(nso,nso,nso,nso),soo(dim2,dim2))
   hsootb=0
@@ -559,19 +554,20 @@ use module
            do c=1,nso
               do d=1,nso
                  sootb(a,b,c,d)=sootb(a,b,c,d)+0.5d0*(hsootb(k,a,b,c,d)+dconjg(hsootb(k,c,d,a,b)))
-                
+                 temporary(k,a,b,c,d)=temporary(k,a,b,c,d)+0.5d0*(hsootb(k,a,b,c,d)+dconjg(hsootb(k,c,d,a,b)))
               enddo
            enddo
         enddo
      enddo
   enddo
 
+  
   do a=1,nso
      do b=1,nso
         do c=1,nso
            do d=1,nso
               if(zabs(sootb(a,b,c,d)-dconjg(sootb(c,d,a,b))).ge.1d-10)write(*,*) a, b, c, d, zabs(sootb(a,b,c,d)-dconjg(sootb(c,d,a,b)))
-            !  if(zabs(sootb(a,b,c,d)).ge.1d-10)write(*,*) sootb(a,b,c,d)
+              if(zabs(sootb(a,b,c,d)).ge.1d-10)write(77,*) a,b,c,d
            enddo
         enddo
      enddo
@@ -580,50 +576,43 @@ use module
   
   !Inizio a passare dal tb al real space
   soo=0
-  do n=1,dim2
-     perm=0
-     do i=0,nso-1
-        if(btest(vecconfig(n),i))temp=ibclr(vecconfig(n),i)
-        do j=0,nso-1
-           if(btest(temp,j))temp=ibclr(temp,j)
-           perm=perm+abs(j-i)
-           do k=0,nso-1
-              if(.not.btest(temp,k))temp=ibset(temp,k)
-              perm=perm+abs(j-k)
-              do l=0,nso-1
-                 if(.not.btest(temp,l))temp=ibset(temp,l)
-                 perm=perm+abs(l-k)
-                 m=binary_search(vecconfig, temp, 1, dim2)
 
-                 if(mod(perm,2).eq.0)then
-                    phase=+1
-                 else
-                    phase=-1
-                 endif
-                 soo(n,m)=pf*phase*sootb(i+1,j+1,k+1,l+1)
-              enddo
-           enddo
-        enddo
-     enddo
-  enddo
+  call  bielectron(dim2,nso,pf,vecconfig,sootb,soo)
   call check_hermitian(soo,dim2,bool)
   if(bool)write(*,*)'soo bene'
+
+  allocate(bi_coup(3,dim2,dim2))
+  bi_coup=0
+  do k=1,3
+     call  bielectron(dim2,nso,pf,vecconfig,temporary(k,:,:,:,:),bi_coup(k,:,:))
+  enddo
+
+  
   !============================================================
   allocate(ham2(dim2,dim2))
   !! Adding to hamiltonian
   do n=1,dim2
      ham(n,n)=pot(n)+energy(n)
      do m=1,dim2
-        ham(n,m)=ham(n,m)+1*coup(n,m)-tt(n,m)+soo(n,m)+sso(n,m)
+        ham(n,m)=ham(n,m)-tt(n,m)+coup(n,m)-soo(n,m)-sso(n,m)
      enddo
   enddo
-
- do n=1,dim2
+  soc=0
+  do n=1,dim2
+     do m=1,dim2
+        soc(n,m)=soc(n,m)-sso(n,m)-soo(n,m)+coup(n,m)
+     enddo
+  enddo
+  
+  do n=1,dim2
      ham2(n,n)=pot(n)+energy(n)
      do m=1,dim2
         ham2(n,m)=ham2(n,m)-tt(n,m)
      enddo
   enddo
+
+  !HAM2 HUBBARD HAMILTONIAN
+
 
   
   call  check_hermitian(ham, dim2, is_hermitian)
@@ -633,31 +622,25 @@ use module
   lrwork=(1+5*dim2+2*dim2**2)
   liwork=(3+5*dim2)
   lwork=(2*dim2+dim2**2)
-  allocate(w(dim2),work(max(1,lwork)),rwork(lrwork),iwork(max(1,liwork)),w2(dim2))
+  allocate(w(dim2),work(max(1,lwork)),rwork(lrwork),iwork(max(1,liwork)),w2(dim2), eig(dim2,3))
 !==============================DIAGONALIZATION=========================
   call zheevd (jobz, uplo, dim2, ham, dim2, w, work, lwork,rwork,lrwork,iwork,liwork,info)
-  call eigenvalues(dim2,1d-10,w,state)
+  call eigenvalues(dim2,1d-8,w,state)
 
   call rotate_cplx_2x2(dim2,sqrot2,sqrot,ham)
   call check_hermitian(sqrot2, dim2, bool)
   if(.not.bool)write(*,*) 'AAAAH'
-
   
   write(4,*) 'EIGENVALUES'
   do i=1,12
      write(4,*) w(i)-w(1), state(i), dreal(sqrot2(i,i))
   enddo
-
- 
-
-  !call write_matrix (dreal(sqrot), 5555, dim2, dim2, dim2)
-!!$  do n=1,dim2
-!!$     do m=1,dim2
-!!$        if(dreal(sqrot(n,m)).ge.1d-12)write(5555,*) n, m, dreal(sqrot(n,m))
-!!$     enddo
-!!$  enddo
+  eig=0
+  do i=1,dim2
+     eig(i,3)=w(i)-w(1)
+  enddo
   
-  !=========================OUTPUT=========================
+!=========================OUTPUT=========================
   allocate(charges(dim2,nsiti))
   charges=0
   call rot_diag(dim2,charges,carica,nsiti,ham)
@@ -679,8 +662,6 @@ use module
         enddo
      enddo
   enddo
-
-
   
   write(4,*) 'DIPOLE ALPHA'
   write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k), k=1,3)
@@ -690,21 +671,10 @@ use module
 !!$  write(4,*) 'DIPOLE ALPHA+BETA'
 !!$  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
   mu=0
-  do i=1,dim2 !a
-     do l=1,dim2 !b
-        do j=1,dim2 !alfa
-           do k=1,3
-              mu(i,l,k)=mu(i,l,k)+dconjg(ham(j,i))*ham(j,l)*dipole(j,k)
-           enddo
-        enddo
-     enddo
-  enddo
-
-
   
-!!$  do k=1,3
-!!$     call rotate_real_1x2(dim2,mu(:,:,k),dipole(:,k),ham)
-!!$  enddo
+  do k=1,3
+     call rotate_real_1x2(dim2,mu(:,:,k),dipole(:,k),ham)
+  enddo
   
   allocate(ppra(3,dim2,dim2),pprb(3,dim2,dim2))
   do k=1,3
@@ -725,26 +695,49 @@ use module
      if(.not.bool)write(*,*) 'ERROR PPRB K=',k
 
   enddo
- write(4,*) 'LINEAR MOMENT ALPHA'
-  write(4,'(<3>(2x,f10.5))') (dimag(ppra(k,1,1)), k=1,3)
+  write(4,*) 'LINEAR MOMENT ALPHA'
+  write(4,'(<3>(2x,f15.8))') (dimag(ppra(k,1,1)), k=1,3)
   write(4,*) 'LINEAR MOMENT BETA'
-  write(4,'(<3>(2x,f10.5))') (dimag(pprb(k,1,1)), k=1,3)
+  write(4,'(<3>(2x,f15.8))') (dimag(pprb(k,1,1)), k=1,3)
   
   !=========================CHECK=========================
   w=0
-
   call zheevd (jobz, uplo, dim2, ham2, dim2, w, work, lwork,rwork,lrwork,iwork,liwork,info)
 
-  coupling=0
-!!$  do i=1,10
-!!$     write(4,*) w(i)-w(1)
-!!$  enddo
+  do i=1,dim2
+     eig(i,1)=w(i)-w(1)
+  enddo
+ 
   w2=w
-  
+
+  coupling=0
   call rotate_cplx_2x2(dim2,coupling,coup,ham2)
   call check_hermitian(coupling, dim2,bool)
-  if(.not.bool)write(*,*) 'Problemi coupling',  sqrot2=0
+  if(.not.bool)write(*,*) 'Problemi coupling'
+
+  socr=0
+  call rotate_cplx_2x2(dim2,socr,soc,ham2)
+  call check_hermitian(socr,dim2,bool)
+  if(.not.bool)write(*,*) 'problemi socr'
+  
+  sqrot2=0
   call  rotate_cplx_2x2(dim2,sqrot2,sqrot,ham2)
+  call check_hermitian(sqrot2,dim2,bool)
+  if(.not.bool)write(*,*) 'problemi sqrot2'
+
+  allocate(mcrot(3,dim2,dim2),bcrot(3,dim2,dim2))
+  mcrot=0
+  bcrot=0
+
+  do k=1,3
+     call  rotate_cplx_2x2(dim2,mcrot(k,:,:),mono_coup(k,:,:),ham2)
+     call check_hermitian(mcrot(k,:,:),dim2,bool)
+     if(.not.bool)write(*,*)'Problemi mcrot'
+     call  rotate_cplx_2x2(dim2,bcrot(k,:,:),bi_coup(k,:,:),ham2)
+     call check_hermitian(bcrot(k,:,:),dim2,bool)
+     if(.not.bool)write(*,*)'Problemi bcrot'
+  enddo
+
   singlet=0
   triplet=0
   quintet=0
@@ -759,7 +752,7 @@ use module
   do n=1,dim2
      ham2(n,n)=w(n)
      do m=1,dim2
-       ham2(n,m)=ham2(n,m)+coupling(n,m)
+       ham2(n,m)=ham2(n,m)+coupling(n,m)+socr(n,m)
      enddo
   enddo
   call check_hermitian(ham2, dim2,bool)
@@ -767,7 +760,9 @@ use module
  
   w=0
   call zheevd (jobz, uplo, dim2, ham2, dim2, w, work, lwork,rwork,lrwork,iwork,liwork,info)
-
+  do i=1,dim2
+     eig(i,2)=w(i)-w(1)
+  enddo
   allocate(sr(dim2,dim2), tr(dim2,dim2), qr(dim2,dim2))
   sr=0
   tr=0
@@ -775,14 +770,77 @@ use module
   call rotate_real_1x2(dim2,sr,singlet,ham2)
   call rotate_real_1x2(dim2,tr,triplet,ham2)
   call rotate_real_1x2(dim2,qr,quintet,ham2)
-
-  do n=1,dim2
+  write(4,*) 'COMPOSITION STATE' 
+  do n=1,14
      write(4,'(I10, 4F15.10)')n, sr(n,n)*100, tr(n,n)*100, qr(n,n)*100
   enddo
   do i=1,12
      write(6,'(I10, 5F20.15)') i, w2(i)-w2(1), w(i)-w(1), sr(i,i)*100, tr(i,i)*100, qr(i,i)*100
   enddo
+!!$  
+  write(4,*) 'EVOLUTION'
+  do i=1,12
+     write(4,'(I10, 5F20.15)') i, eig(i,1), eig(i,2), eig(i,3)
+  enddo
+
+  do i=1,12
+     write(99,*) i,(eig(i,2)-eig(i,1))*1d10, (eig(i,3)-eig(i,1))*1d10
+  enddo
+
+ 
+  do i=1,50
+     write(100,*) eig(i,1), dsqrt(zabs(coupling(1,i))**2), dsqrt(zabs(socr(1,i))**2)
+  enddo
+  do i=1,50
+     write(102,*) eig(i,1), dsqrt(zabs(coupling(3,i))**2), dsqrt(zabs(socr(3,i))**2)
+  enddo
+
+  open(9876,file='post.dat')
+  open(9877,file='post1.dat')
+  open(9878,file='mcrot_r.dat')
+  open(9879,file='mcrot_i.dat')
+  open(9883,file='bcrot_r.dat')
+  open(9882,file='bcrot_i.dat')
   
+  do i=1,dim2
+     write(9876,*) dreal(coupling(1,i)),  dimag(coupling(1,i)), dreal(socr(1,i)), dimag(socr(1,i))
+     write(9877,*) dreal(coupling(5,i)),  dimag(coupling(5,i)), dreal(socr(5,i)), dimag(socr(5,i))
+     !write(9876,*) dsqrt(zabs(coupling(5,i))**2), dsqrt(zabs(socr(5,i))**2)
+  enddo
+
+  do i=1,dim2
+     write(9878,*) ( dreal(mcrot(k,5,i)), k=1,3)
+     write(9879,*) (  dimag(mcrot(k,5,i)), k=1,3)
+     write(9883,*)( dreal(bcrot(k,5,i)), k=1,3)
+     write(9882,*)(  dimag(bcrot(k,5,i)), k=1,3)
+  enddo
+
 
   
+  !==========================SPIN DENSITY ROTATION=========================
+  sdr=0
+  do n=1,dim2
+     do m=1,dim2
+        do l=1,nsiti
+           sdr(n,l)=sdr(n,l)+spindensity(m,l)*zabs(ham(m,n))**2
+        enddo
+     enddo
+  enddo
+  write(4,*) 'SPIN DENSITY'
+  do n=1,dim2
+    write(4,'(I2,4F15.8,A2)') n, sdr(n,1), sdr(n,2), sdr(n,3), sdr(n,4), state(n)
+ enddo
+
+ !=========================REDFILL=========================
+ open(55,file='mu-bin.dat')
+ write(55)(mu-bin(:10,:10,k), k=1,3)
+ open(66,file='eigen-bin.dat')
+ write(66) w(:10)
+ open(77, file='singlet-bin.dat')
+ write(77)sr(:10)
+ open(88, file='triplet-bin.dat')
+ write(88)tr(:10)
+ 
+
+ 
 end program flash
