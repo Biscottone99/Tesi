@@ -26,6 +26,42 @@ subroutine copy_upper_to_lower(matrix, n)
 end subroutine copy_upper_to_lower
 
 
+subroutine copy_upper_to_lower_cplx(matrix, n, l)
+  implicit none
+  integer, intent(in) :: n, l
+  complex*16, dimension(l,n, n), intent(inout) :: matrix
+
+  integer :: i, j,m
+
+  do m=1,l
+     do i = 1, n
+        do j = i+1, n
+           matrix(m,j, i) = matrix(m,i, j)
+        end do
+     end do
+  enddo
+end subroutine copy_upper_to_lower_cplx
+
+subroutine copia_comp_conj(matrice, l, m)
+    implicit none
+    integer, intent(in) :: l, m
+    complex*16, intent(inout) :: matrice(l,m,m)
+    integer :: i, j, k
+    
+    ! Copia il complesso coniugato nel triangolo inferiore della matrice
+    do k=1,l
+       do i=1,m
+          do j=1,m
+             if (j < i) matrice(k,i, j) = dconjg(matrice(k,j, i))
+
+          end do
+       end do
+    enddo
+    
+  end subroutine copia_comp_conj
+
+
+
 
 recursive function binary_search(arr, target, low, high) result(index)
     integer, intent(in) :: arr(:), target, low, high
@@ -128,7 +164,7 @@ recursive function binary_search(arr, target, low, high) result(index)
     double complex, intent (in) :: op_tb(nso,nso)
     double complex, intent (out) :: op(dim,dim)
     double precision phase
-
+    write(*,*) 'CHECK2'
     op = 0.d0
     do j = 1,dim !col index
         do iso = 0,nso-1 ! creation op index
@@ -292,7 +328,7 @@ recursive function binary_search(arr, target, low, high) result(index)
       end do
 
       ! Verifica se la matrice è Hermitiana
-      is_hermitian = all(matrix == conj_transpose_matrix)
+      is_hermitian = all(zabs(matrix - conj_transpose_matrix).le.1d-14)
 
     end subroutine check_hermitian
 
@@ -350,7 +386,7 @@ recursive function binary_search(arr, target, low, high) result(index)
       enddo
     end subroutine ohno
 
-    subroutine site_energy_ohno(nso,dim2,esite,u,vecconfig,energy)
+    subroutine site_energy_u(nso,dim2,esite,u,vecconfig,energy)
       implicit none
       integer::n,i, sito
       real*8, intent(in)::esite(nso/2), u(nso/2)
@@ -376,7 +412,7 @@ recursive function binary_search(arr, target, low, high) result(index)
          enddo
       enddo
 
-    end subroutine site_energy_ohno
+    end subroutine site_energy_u
 
       subroutine site_energy(nso,dim2,esite,vecconfig,energy)
       implicit none
@@ -396,11 +432,6 @@ recursive function binary_search(arr, target, low, high) result(index)
       enddo
     end subroutine site_energy
             
-            
-
-
-
-    
     subroutine momentum_so (nsiti, nso, hop, nuclei, pp_so)
       implicit none
       integer::k, i, j
@@ -428,12 +459,14 @@ recursive function binary_search(arr, target, low, high) result(index)
     end subroutine momentum_so
 
     
-    subroutine write_matrix (matrix, numfile, righe, colonne)
+    subroutine write_matrix (matrix, numfile, righe, colonne, till)
       integer::i,j
-      integer, intent(in):: numfile
+      
+      integer, intent(in):: numfile, till
       integer, intent(in)::righe, colonne
       real*8,intent(in)::matrix(righe,colonne)
-      do i=1,righe
+     ! write(numfile,*) file_name
+      do i=1,till
          write(numfile,'(<colonne>(2x,f10.5))') (matrix(i,j), j=1,colonne)
       enddo
     end subroutine write_matrix
@@ -474,31 +507,29 @@ recursive function binary_search(arr, target, low, high) result(index)
 
     subroutine charge(carica, vecconfig, nz, dim2, nso)
       implicit none
-      integer, intent(in):: nz(nso/2), dim2, vecconfig(dim2), nso
-      real*8, intent(out):: carica(dim2, nso/2)
-      integer:: n, i, a, b, sito
+      integer, intent(in):: dim2, nso, vecconfig(dim2), nz(nso/2)
+      real*8, intent(out):: carica(dim2,nso/2)
+      integer:: n, i, sito,a , b
       logical::bool, bool1
 
-      carica = 0
-
-      do n = 1, dim2
-         do i = 0, nso-1, 2
-            bool = btest(vecconfig(n), i)
-            bool1 = btest(vecconfig(n), i+1)
-
-            if (bool) then
-               a = 1
-            else
-               a = 0
-            endif
-
-            if (bool1) then
-               b = 1
-            else
-               b = 0
-            endif
+      carica=0
+      do n=1,dim2
+         do i=0,nso-2,2
             sito=(i+2)/2
-            carica(n, sito) = nz(sito) - (a + b)
+            bool=btest(vecconfig(n), i)
+            bool1=btest(vecconfig(n), i+1)
+            if(bool)then
+               a=1
+            else
+               a=0
+            endif
+
+            if(bool1)then
+               b=1
+            else
+               b=0
+            endif
+            carica(n,sito)=nz(sito)-(a+b)
          enddo
       enddo
     end subroutine charge
@@ -533,32 +564,229 @@ recursive function binary_search(arr, target, low, high) result(index)
 !!$      end do
 !!$
 !!$    end subroutine copia_quad
+    
+    subroutine square_complex_matrix(n, A)
+      implicit none
+      integer, intent(in) :: n
+      complex*16, intent(inout) :: A(n,n)
+      complex*16 :: temp(n,n)
+      integer :: i, j, k
 
-    subroutine quadrato_matrice_tridimensionale(matrice, dim2, strati,quad)
-      integer,intent(in)::strati, dim2
-      complex*16,intent(in)::matrice(strati,dim2,dim2)
-      complex*16,intent(out)::quad(strati,dim2,dim2)
-      integer::i,j,k,m
-      complex*16::temp(dim2,dim2)
-
-      ! Calcola il quadrato di ogni "strato" lungo la dimensione k
-      do k = 1, strati
-         do i = 1, dim2
-            do j = 1, dim2
-               temp(i, j) = (0.0, 0.0)
-               do m = 1, dim2
-                  temp(i, j) = temp(i, j) + matrice(k, m, i) * matrice(k, m, j)
-               end do
-            end do
-         end do
-
-         ! Copia il risultato nella matrice originale
-         do i = 1, dim2
-            do j = 1, dim2
-               quad(k, i, j) = temp(i, j)
+      ! Calcola il prodotto di A per se stessa
+      do i = 1, n
+         do j = 1, n
+            temp(i,j) = (0.0d0, 0.0d0)
+            do k = 1, n
+               temp(i,j) = temp(i,j) + A(i,k) * A(k,j)
             end do
          end do
       end do
 
-    end subroutine quadrato_matrice_tridimensionale
+      ! Copia il risultato nel parametro di input A
+      do i = 1, n
+         do j = 1, n
+            A(i,j) = temp(i,j)
+         end do
+      end do
+
+    end subroutine square_complex_matrix
+
+    subroutine vec_prod(v1, v2, risultato)
+      complex*16,intent(in) :: v1(3), v2(3)
+      complex*16, intent(out)::risultato(3)
+      integer :: i
+
+      ! Controllo delle dimensioni dei vettori
+      if (size(v1) /= 3 .or. size(v2) /= 3) then
+         print *, "Errore: i vettori devono essere di dimensione 3."
+         return
+      endif
+
+      ! Calcolo del prodotto vettoriale
+      risultato(1) = v1(2) * v2(3) - v1(3) * v2(2)
+      risultato(2) = v1(3) * v2(1) - v1(1) * v2(3)
+      risultato(3) = v1(1) * v2(2) - v1(2) * v2(1)
+
+    end subroutine vec_prod
+
+    subroutine calcola_distanze(coordinate, distanze, nsiti)
+    implicit none
+    real(8), dimension(nsiti, 3), intent(in) :: coordinate
+    real(8), dimension(size(coordinate, 1), size(coordinate, 1)), intent(out) :: distanze
+    integer :: i, j, n
+    integer, intent(in):: nsiti
+    real(8) :: dx, dy, dz
+    
+    n = size(coordinate, 1)
+    
+    ! Calcola le distanze tra tutti i punti
+    do i = 1, n
+        do j = i+1, n
+            dx = coordinate(i, 1) - coordinate(j, 1)
+            dy = coordinate(i, 2) - coordinate(j, 2)
+            dz = coordinate(i, 3) - coordinate(j, 3)
+            distanze(i, j) = dsqrt(dx**2 + dy**2 + dz**2)
+            distanze(j, i) = distanze(i, j) ! Simmetria della matrice delle distanze
+        end do
+    end do
+    
+  end subroutine calcola_distanze
+
+  subroutine rotate_real_1x2(dim2,out,in,ham)
+    implicit none
+    integer::i,l,j,k
+    integer, intent(in)::dim2
+    real*8,intent(out)::out(dim2,dim2)
+    real*8,intent(in)::in(dim2)
+    complex*16,intent(in)::ham(dim2,dim2)
+
+    !$omp parallel do default(none)&
+    !$omp private(i,l,j,k)&
+    !$omp shared(in,ham,dim2)&
+    !$omp reduction(+:out)
+    do i=1,dim2 !a
+       do l=1,dim2 !b
+          do j=1,dim2 !alfa 
+             out(i,l)=out(i,l)+dconjg(ham(j,i))*ham(j,l)*in(j)
+          enddo
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine rotate_real_1x2
+
+
+
+    subroutine rotate_cplx_1x2(dim2,out,in,ham)
+      implicit none
+      integer::i,l,j,k
+      integer, intent(in)::dim2
+      complex*16,intent(out)::out(dim2,dim2)
+      complex*16,intent(in)::in(dim2)
+      complex*16,intent(in)::ham(dim2,dim2)
+
+      !$omp parallel do default(none)&
+      !$omp private(i,l,j,k)&
+      !$omp shared(in,ham,dim2)&
+      !$omp reduction(+:out)
+      do i=1,dim2 !a
+         do l=1,dim2 !b
+            do j=1,dim2 !alfa 
+              
+                  out(i,l)=out(i,l)+dconjg(ham(j,i))*ham(k,l)*in(j)
+               
+            enddo
+         enddo
+      enddo
+      !$omp end parallel do
+    end subroutine rotate_cplx_1x2
+
+    !ruota una matrice reale non quadrata sullo spazio degli autostati
+    !out è la matrice che ottieni
+    !in è la matrice che ruoti
+    !rot è la matrice complessa con gli autovettori
+    !col è il numero di colonne
+
+   subroutine check_q(matrix, n, is_hermitian)
+      implicit none
+      integer, intent(in) :: n
+      complex*16, intent(in) :: matrix(n,n,n,n)
+      logical, intent(out) :: is_hermitian
+
+      integer :: i, j, k, l
+      complex*16 :: conj_transpose_matrix(n, n,n,n)
+
+      ! Calcola la trasposta coniugata della matrice
+      do k=1,n
+         do l=1,n
+            do i = 1, n
+               do j = 1, n
+                  conj_transpose_matrix(k,l,j,i) = dconjg(matrix(j,i,k,l))
+               end do
+            end do
+         enddo
+      enddo
+
+      ! Verifica se la matrice è Hermitiana
+      is_hermitian = all(zabs(matrix - conj_transpose_matrix).le.1d-14)
+
+    end subroutine check_q
+
+
+
+    subroutine bielectron(dim2,nso,pf,vecconfig,sootb,soo)
+      integer:: n,a,b,c,d,m,temp,perm,phase,i
+      integer,intent(in)::dim2,nso
+      integer,intent(in)::vecconfig(dim2)
+      complex*16,intent(out)::soo(dim2,dim2)
+      complex*16,intent(in)::sootb(nso,nso,nso,nso),pf
+     
+
+      do n=1,dim2
+
+         do d=0,nso-1
+            do c=0,nso-1
+               do b=0,nso-1
+                  do a=0,nso-1
+                     perm=0
+                     if(btest(vecconfig(n),d))then
+                        if(d.ne.nso-1)then
+                           do i=nso-1,d+1,-1
+                              if(btest(vecconfig(n),i))perm=perm+1
+                           enddo
+                        endif
+                        temp=ibclr(vecconfig(n),d)
+
+                        if(btest(temp,c))then
+                           if(c.ne.nso-1)then
+                              do i=nso-1,c+1,-1
+                                 if(btest(temp,i))perm=perm+1
+                              enddo
+                           endif
+                           temp=ibclr(temp,c)
+
+                           if(.not.btest(temp,b))then
+                              if(b.ne.nso-1)then
+                                 do i=nso-1,b+1,-1
+                                    if(btest(temp,i))perm=perm+1
+                                 enddo
+                              endif
+                              temp=ibset(temp,b)
+
+                              if(.not.btest(temp,a))then
+                                 if(a.ne.nso-1)then
+                                    do i=nso-1,a+1,-1
+                                       if(btest(temp,i))perm=perm+1
+                                    enddo
+                                 endif
+                                 temp=ibset(temp,a)
+
+                                 m=binary_search(vecconfig, temp, 1, dim2)
+
+                                 if(m.ne.0)then
+                                    if(mod(perm,2).eq.0)then
+                                       phase=+1
+                                    else
+                                       phase=-1
+                                    endif
+
+                                    soo(n,m)=soo(n,m)+pf*phase*sootb(a+1,b+1,c+1,d+1)
+                                    write(88,*)a+1,b+1,c+1,d+1
+                                    !if(soo(n,m).ne.0) WRITE(*,*) soo(n,m)
+                                 endif
+                              endif
+                           endif
+                        endif
+                     endif
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+
+      
+    end subroutine bielectron
+
+
+
+    
   end module module
