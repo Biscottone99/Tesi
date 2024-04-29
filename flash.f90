@@ -1,4 +1,4 @@
-ìprogram flash
+program flash
 use module
 
   implicit none
@@ -22,7 +22,7 @@ use module
   complex*16::cplx,pf
   character*1,allocatable::state(:)
   
-  nsiti=4!6
+  nsiti=6
  
   
   Uc=6d0
@@ -77,7 +77,7 @@ use module
   esite(1)=-4d0
   esite(nsiti)=+4d0
 
-  do i=nsiti+1,nsiti-1
+  do i=nsiti-2,nsiti-1
      nz(i)=1
      esite(i)=0
   enddo
