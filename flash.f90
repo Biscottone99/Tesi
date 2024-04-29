@@ -10,10 +10,10 @@ use module
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:)
   real*8,allocatable:: rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:)
   real*8,allocatable:: muax(:),muay(:), muaz(:), dist2(:,:), mubx(:), muby(:), mubz(:), muarx(:,:), muary(:,:), muarz(:,:), mubrx(:,:), mubry(:,:), mubrz(:,:)
-  real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:), eig(:,:), spindensity(:,:), sdr(:,:), dummyreal(:,:), dummy1real(:), d2real(:,:)
+  real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:), eig(:,:), spindensity(:,:), sdr(:,:)
   complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), sx(:,:),sy(:,:), sz(:,:), ssqx(:,:),ssqy(:,:), ssqz(:,:),srot(:,:,:), hopax(:,:), hopay(:,:), hopaz(:,:), hopbx(:,:), hopby(:,:), hopbz(:,:)
   complex*16,allocatable::ppax(:,:), ppbx(:,:),ppay(:,:), ppaz(:,:), ppby(:,:), ppbz(:,:), pprax(:,:), pprbx(:,:),ppray(:,:), pprby(:,:), ppraz(:,:), pprbz(:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:), soc(:,:), socr(:,:), mono_coupx(:,:),mono_coupy(:,:), mono_coupz(:,:)
-  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), sdummy(:,:), ssqdummy(:,:),dummy1(:), dummy2(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:)
+  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:)
   real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:), mux(:,:), muy(:,:), muz(:,:), dipolex(:), dipoley(:), dipolez(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
@@ -22,10 +22,10 @@ use module
   complex*16::cplx,pf
   character*1,allocatable::state(:)
   
-  nsiti=6
+  nsiti=4
  
   
-  Uc=6d0
+ ! Uc=6d0
   t=0.6d0
   nso=nsiti*2
   me=9.1093837015d-31
@@ -45,7 +45,9 @@ use module
   open(2,file='geom.dat')
   open(3,file='hamiltonian.dat')
   open(4,file='results.dat')
- ! open(5,file='input.dat')
+  open(5,file='input.dat')
+  read(5,*) uc
+  close(5)
   open(6,file='check.dat')
   open(10,file='dim2.dat')
   open(11,file='work.dat')
@@ -757,7 +759,7 @@ use module
   write(4,*) 'CARICHE'
   call write_matrix(charges, 4, dim2, nsiti, 10)
   
-  allocate(mux(dim2,dim2), muy(dim2,dim2), muz(dim2,dim2), pp2r(dim2,dim2,2,3),muarx(dim2,dim2),muary(dim2,dim2), muarz(dim2,dim2), mubrx(dim2,dim2), mubry(dim2,dim2), mubrz(dim2,dim2), dummyreal(dim2,dim2),dummy1real(dim2),d2real(dim2,dim2))
+  allocate(mux(dim2,dim2), muy(dim2,dim2), muz(dim2,dim2), pp2r(dim2,dim2,2,3),muarx(dim2,dim2),muary(dim2,dim2), muarz(dim2,dim2), mubrx(dim2,dim2), mubry(dim2,dim2), mubrz(dim2,dim2))
 
   call rotate_real_1x2(dim2, muarx, muax, ham)
   call rotate_real_1x2(dim2, muary, muay, ham)
