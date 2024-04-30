@@ -3,29 +3,29 @@ use module
 
   implicit none
   character*1:: jobz,uplo
-  integer:: lda, lwork,isito,irwork,liwork,info, lrwork, si, sj,nso,conta, count,perm,phase,bbbb
+  integer:: lda, lwork,isito,irwork,liwork,info, lrwork, si, sj,nso,conta, count,perm,phase,bbbb, dimred
   integer,allocatable::iwork(:)
   integer::nsiti,dim2, i, n, a, b, c, d, p,j, k, l
   integer::  temp, m, contasito,sitoi, sitoj
   integer,allocatable:: vecconfig(:), occupazioni(:), NZ(:), spar(:,:)
   real*8,allocatable:: rwork(:), w(:), dist(:,:,:), hop(:,:), nuclei(:,:), hop2(:,:), spintot(:), carica(:,:), u(:),esite(:), mu(:,:,:), charges(:,:), dipole(:,:)
-  real*8,allocatable:: muax(:),muay(:), muaz(:), dist2(:,:), mubx(:), muby(:), mubz(:), muarx(:,:), muary(:,:), muarz(:,:), mubrx(:,:), mubry(:,:), mubrz(:,:)
+  real*8,allocatable:: muax(:),muay(:), muaz(:), dist2(:,:), mubx(:), muby(:), mubz(:)
   real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:), eig(:,:), spindensity(:,:), sdr(:,:)
   complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), sx(:,:),sy(:,:), sz(:,:), ssqx(:,:),ssqy(:,:), ssqz(:,:),srot(:,:,:), hopax(:,:), hopay(:,:), hopaz(:,:), hopbx(:,:), hopby(:,:), hopbz(:,:)
   complex*16,allocatable::ppax(:,:), ppbx(:,:),ppay(:,:), ppaz(:,:), ppby(:,:), ppbz(:,:), pprax(:,:), pprbx(:,:),ppray(:,:), pprby(:,:), ppraz(:,:), pprbz(:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:), soc(:,:), socr(:,:), mono_coupx(:,:),mono_coupy(:,:), mono_coupz(:,:)
-  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:)
-  real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:), mux(:,:), muy(:,:), muz(:,:), dipolex(:), dipoley(:), dipolez(:)
+  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:),psi0(:),mux(:,:), muy(:,:), muz(:,:), , muarx(:,:), muary(:,:), muarz(:,:), mubrx(:,:), mubry(:,:), mubrz(:,:)
+  real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:),  dipolex(:), dipoley(:), dipolez(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
-  real*8::strenght,hbar,hbarev,echarge,emass,dpg, bubu, balu, delta, gamma, gamma2, tollerance, bibi
+  real*8::strenght,hbar,hbarev,echarge,emass,dpg, bubu, balu, delta, gamma, gamma2, tollerance, bibi,norm
   complex*16::spin(2,2,3),vec1(3),vec2(3), cp(3), cp1(3)
   complex*16::cplx,pf
   character*1,allocatable::state(:)
   
   nsiti=4
- 
+  dimred=11
   
- ! Uc=6d0
+  Uc=6d0
   t=0.6d0
   nso=nsiti*2
   me=9.1093837015d-31
@@ -45,9 +45,9 @@ use module
   open(2,file='geom.dat')
   open(3,file='hamiltonian.dat')
   open(4,file='results.dat')
-  open(5,file='input.dat')
-  read(5,*) uc
-  close(5)
+!!$  open(5,file='input.dat')
+!!$  read(5,*) t
+!!$  close(5)
   open(6,file='check.dat')
   open(10,file='dim2.dat')
   open(11,file='work.dat')
@@ -761,12 +761,12 @@ use module
   
   allocate(mux(dim2,dim2), muy(dim2,dim2), muz(dim2,dim2), pp2r(dim2,dim2,2,3),muarx(dim2,dim2),muary(dim2,dim2), muarz(dim2,dim2), mubrx(dim2,dim2), mubry(dim2,dim2), mubrz(dim2,dim2))
 
-  call rotate_real_1x2(dim2, muarx, muax, ham)
-  call rotate_real_1x2(dim2, muary, muay, ham)
-  call rotate_real_1x2(dim2, muarz, muaz, ham)
-  call rotate_real_1x2(dim2, mubrx, mubx, ham)
-  call rotate_real_1x2(dim2, mubry, muby, ham)
-  call rotate_real_1x2(dim2, mubrz, mubz, ham)
+  call rotate_cplx_1x2(dim2, muarx, muax, ham)
+  call rotate_cplx_1x2(dim2, muary, muay, ham)
+  call rotate_cplx_1x2(dim2, muarz, muaz, ham)
+  call rotate_cplx_1x2(dim2, mubrx, mubx, ham)
+  call rotate_cplx_1x2(dim2, mubry, muby, ham)
+  call rotate_cplx_1x2(dim2, mubrz, mubz, ham)
   
   write(4,*) 'DIPOLE ALPHA'
   write(4,'(<3>(2x,f10.5))') muarx(1,1), muary(1,1), muarz(1,1)
@@ -776,9 +776,9 @@ use module
   
 !!$  write(4,*) 'DIPOLE ALPHA+BETA'
 !!$  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
-  call rotate_real_1x2(dim2, mux, dipolex, ham)
-  call rotate_real_1x2(dim2, muy, dipoley, ham)
-  call rotate_real_1x2(dim2, muz, dipolez, ham)
+  call rotate_cplx_1x2(dim2, mux, dipolex, ham)
+  call rotate_cplx_1x2(dim2, muy, dipoley, ham)
+  call rotate_cplx_1x2(dim2, muz, dipolez, ham)
  
   allocate(pprax(dim2,dim2),pprbx(dim2,dim2),ppray(dim2,dim2), pprby(dim2,dim2), ppraz(dim2,dim2), pprbz(dim2,dim2))
   pprax=0
@@ -795,13 +795,13 @@ use module
   call rotate_cplx_2x2(dim2, pprby, ppby, ham)
   call rotate_cplx_2x2(dim2, pprbz, ppbz, ham)
   
-  write(6,*) "DIPOLE MOMENT"
-  write(6,*) 'DIPOLE X'
-  call write_matrix (mux, 6, dim2,dim2, dim2)
-  write(6,*) 'DIPOLE Y'
-  call write_matrix (muy, 6, dim2,dim2, dim2)
-  write(6,*) 'DIPOLE Z'
-  call write_matrix (muz, 6, dim2,dim2, dim2)
+!!$  write(6,*) "DIPOLE MOMENT"
+!!$  write(6,*) 'DIPOLE X'
+!!$  call write_matrix (dreal(mux), 6, dim2,dim2, dim2)
+!!$  write(6,*) 'DIPOLE Y'
+!!$  call write_matrix (dreal(muy), 6, dim2,dim2, dim2)
+!!$  write(6,*) 'DIPOLE Z'
+!!$  call write_matrix (dreal(muz), 6, dim2,dim2, dim2)
   
   write(4,*) 'LINEAR MOMENT ALPHA'
   write(4,*) dimag(pprax(1,1)),dimag(ppray(1,1)), dimag(ppraz(1,1))
@@ -976,17 +976,40 @@ use module
   do n=1,dim2
     write(4,'(I2,4F15.8,A2)') n, sdr(n,1), sdr(n,2), sdr(n,3), sdr(n,4), state(n)
  enddo
+ !=========================INITIAL STATE PREPARATION=========================
+ allocate(psi0(dim2))
+ psi0=0
+ do i=2,dim2
+    psi0(i)=muz(i,1)
+ enddo
+ norm=0.d0
+ do i=1,dim2
+    norm=norm+dconjg(psi0(i))*psi0(i)
+ enddo
+ psi0=psi0/norm
 
- !=========================REDFILL=========================
-!!$ open(55,file='mu-bin.dat')
-!!$ write(55)(mu(:10,:10,k), k=1,3)
-!!$ open(66,file='eigen-bin.dat')
-!!$ write(66) w(:10)
-!!$ open(77, file='singlet-bin.dat')
-!!$ write(77)sr(:10)
-!!$ open(88, file='triplet-bin.dat')
-!!$ write(88)tr(:10)
-!!$ 
+ !=========================REDFIELD-INPUTS=========================
+ open(55,file='input-red/mux.bin',form="unformatted")
+ write(55)mux(:dimred,:dimred)
+ open(56,file='input-red/muy.bin',form="unformatted")
+ write(56)muy(:dimred,:dimred)
+ open(57,file='input-red/muz.bin',form="unformatted")
+ write(57)muz(:dimred,:dimred)
+ open(66,file='input-red/eigen.bin',form="unformatted")
+ write(66) w(:dimred)
+ open(77,file='input-red/spin-density.bin',form="unformatted")
+ write(77) (sdr(:dimred,:nsiti))
+ open(88,file='input-red/psi0.bin',form="unformatted")
+ write(88) psi0(:dimred)
 
- 
+ close(55)
+ close(56)
+ close(57)
+ close(66)
+ close(77)
+ close(88)
+
+ open(55,file='input-red/system_input.dat')
+ write(55,*) dimred
+ write(55,*) nsiti
 end program flash
