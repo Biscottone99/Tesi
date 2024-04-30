@@ -13,7 +13,7 @@ use module
   real*8, allocatable:: muralpha(:,:,:), murbeta(:,:,:), singlet(:), triplet(:),quintet(:),w2(:), sr(:,:), tr(:,:), qr(:,:), eig(:,:), spindensity(:,:), sdr(:,:)
   complex*16,allocatable::ham(:,:),work(:), hamsoc(:,:),  soc_a(:,:,:), soc_b(:,:,:),soc_mono(:,:,:), pp(:,:),coup(:,:), COUPLING(:,:),pp2(:,:,:,:),  pp2r(:,:,:,:), now(:,:), now2(:,:), ppso(:,:,:), sx(:,:),sy(:,:), sz(:,:), ssqx(:,:),ssqy(:,:), ssqz(:,:),srot(:,:,:), hopax(:,:), hopay(:,:), hopaz(:,:), hopbx(:,:), hopby(:,:), hopbz(:,:)
   complex*16,allocatable::ppax(:,:), ppbx(:,:),ppay(:,:), ppaz(:,:), ppby(:,:), ppbz(:,:), pprax(:,:), pprbx(:,:),ppray(:,:), pprby(:,:), ppraz(:,:), pprbz(:,:), hssotb(:,:,:,:,:),ssotb(:,:,:,:),sso(:,:),mom(:,:,:), ham2(:,:), sqrot(:,:),sqrot2(:,:), hsootb(:,:,:,:,:), sootb(:,:,:,:), soo(:,:), soc(:,:), socr(:,:), mono_coupx(:,:),mono_coupy(:,:), mono_coupz(:,:)
-  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:),psi0(:),mux(:,:), muy(:,:), muz(:,:), , muarx(:,:), muary(:,:), muarz(:,:), mubrx(:,:), mubry(:,:), mubrz(:,:)
+  complex*16,allocatable:: bi_coupx(:,:),bi_coupy(:,:), bi_coupz(:,:), temporary(:,:,:,:,:), mcrotx(:,:), bcrotx(:,:),mcroty(:,:), mcrotz(:,:), bcroty(:,:), bcrotz(:,:), soor(:,:), ssor(:,:), cicciobello(:,:,:,:), soc_monox(:,:), soc_monoy(:,:), soc_monoz(:,:),psi0(:),mux(:,:), muy(:,:), muz(:,:),  muarx(:,:), muary(:,:), muarz(:,:), mubrx(:,:), mubry(:,:), mubrz(:,:)
   real*8,allocatable:: dsite(:,:), ssite(:), spin3(:), spin2(:), pol(:,:), polr(:,:), tt(:,:), pot(:), energy(:),  dipolex(:), dipoley(:), dipolez(:)
   real*8:: Uc, t, PPP, me, gs, e, e0, pi, cl, radius
   logical:: bool, bool1, bool2, bool3, is_hermitian
@@ -761,12 +761,12 @@ use module
   
   allocate(mux(dim2,dim2), muy(dim2,dim2), muz(dim2,dim2), pp2r(dim2,dim2,2,3),muarx(dim2,dim2),muary(dim2,dim2), muarz(dim2,dim2), mubrx(dim2,dim2), mubry(dim2,dim2), mubrz(dim2,dim2))
 
-  call rotate_cplx_1x2(dim2, muarx, muax, ham)
-  call rotate_cplx_1x2(dim2, muary, muay, ham)
-  call rotate_cplx_1x2(dim2, muarz, muaz, ham)
-  call rotate_cplx_1x2(dim2, mubrx, mubx, ham)
-  call rotate_cplx_1x2(dim2, mubry, muby, ham)
-  call rotate_cplx_1x2(dim2, mubrz, mubz, ham)
+  call rotate_rtc_1x2(dim2, muarx, muax, ham)
+  call rotate_rtc_1x2(dim2, muary, muay, ham)
+  call rotate_rtc_1x2(dim2, muarz, muaz, ham)
+  call rotate_rtc_1x2(dim2, mubrx, mubx, ham)
+  call rotate_rtc_1x2(dim2, mubry, muby, ham)
+  call rotate_rtc_1x2(dim2, mubrz, mubz, ham)
   
   write(4,*) 'DIPOLE ALPHA'
   write(4,'(<3>(2x,f10.5))') muarx(1,1), muary(1,1), muarz(1,1)
@@ -776,9 +776,9 @@ use module
   
 !!$  write(4,*) 'DIPOLE ALPHA+BETA'
 !!$  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
-  call rotate_cplx_1x2(dim2, mux, dipolex, ham)
-  call rotate_cplx_1x2(dim2, muy, dipoley, ham)
-  call rotate_cplx_1x2(dim2, muz, dipolez, ham)
+  call rotate_rtc_1x2(dim2, mux, dipolex, ham)
+  call rotate_rtc_1x2(dim2, muy, dipoley, ham)
+  call rotate_rtc_1x2(dim2, muz, dipolez, ham)
  
   allocate(pprax(dim2,dim2),pprbx(dim2,dim2),ppray(dim2,dim2), pprby(dim2,dim2), ppraz(dim2,dim2), pprbz(dim2,dim2))
   pprax=0
