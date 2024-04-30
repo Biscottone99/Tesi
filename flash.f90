@@ -749,6 +749,22 @@ use module
   do i=1,dim2
      eig(i,3)=w(i)-w(1)
   enddo
+
+    
+  !==========================SPIN DENSITY ROTATION=========================
+  sdr=0
+  do n=1,dim2
+     do m=1,dim2
+        do l=1,nsiti
+           sdr(n,l)=sdr(n,l)+spindensity(m,l)*zabs(ham(m,n))**2
+        enddo
+     enddo
+  enddo
+  write(4,*) 'SPIN DENSITY'
+  do n=1,dim2
+    write(4,'(I2,4F15.8,A2)') n, sdr(n,1), sdr(n,2), sdr(n,3), sdr(n,4), state(n)
+ enddo
+  
   
 !=========================OUTPUT=========================
   allocate(charges(dim2,nsiti))
@@ -773,6 +789,7 @@ use module
   write(4,*) 'DIPOLE BETA'
   write(4,'(<3>(2x,f10.5))') mubrx(1,1), mubry(1,1), mubrz(1,1)
 !!!RUOTO IL MOMENTO DI DIPOLO DEGLI SPIN ALFA E DEGLI SPIN BETA SULLA BASE DEGLI AUTOSTATI BREIT-PAULI
+
   
 !!$  write(4,*) 'DIPOLE ALPHA+BETA'
 !!$  write(4,'(<3>(2x,f10.5))') (muralpha(1,1,k)+murbeta(1,1,k), k=1,3)
@@ -962,20 +979,7 @@ use module
   enddo
      
 
-  
-  !==========================SPIN DENSITY ROTATION=========================
-  sdr=0
-  do n=1,dim2
-     do m=1,dim2
-        do l=1,nsiti
-           sdr(n,l)=sdr(n,l)+spindensity(m,l)*zabs(ham(m,n))**2
-        enddo
-     enddo
-  enddo
-  write(4,*) 'SPIN DENSITY'
-  do n=1,dim2
-    write(4,'(I2,4F15.8,A2)') n, sdr(n,1), sdr(n,2), sdr(n,3), sdr(n,4), state(n)
- enddo
+
  !=========================INITIAL STATE PREPARATION=========================
  allocate(psi0(dim2))
  psi0=0
@@ -986,7 +990,7 @@ use module
  do i=1,dim2
     norm=norm+dconjg(psi0(i))*psi0(i)
  enddo
- psi0=psi0/norm
+ psi0=psi0/dsqrt(norm)
 
  !=========================REDFIELD-INPUTS=========================
  open(55,file='input-red/mux.bin',form="unformatted")
@@ -998,7 +1002,7 @@ use module
  open(66,file='input-red/eigen.bin',form="unformatted")
  write(66) w(:dimred)
  open(77,file='input-red/spin-density.bin',form="unformatted")
- write(77) (sdr(:dimred,:nsiti))
+ write(77)sdr(:dimred,:nsiti)
  open(88,file='input-red/psi0.bin',form="unformatted")
  write(88) psi0(:dimred)
 
