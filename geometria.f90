@@ -1,40 +1,29 @@
-program geometria
+program elica
   implicit none
-  real*8:: l, alpha
-  integer:: i
-  real*8:: x, y,z, pi
-  real*8,allocatable::cord(:,:)
-  l=1.50
+  real*8:: l, alpha, d, r, theta, c, K
+  integer:: i, nsiti
+  real*8::pi
+  real*8,allocatable::cord(:,:), dist(:,:)
+  l=4.d0
+  c=2.d0
+  nsiti=4
   pi=dacos(-1.d0)
-  alpha=pi/4
-  write(*,*) dsin(alpha), dcos(alpha)
+!!$  open(1,file='input.dat')
+!!$  read(1,*) alpha
+!!$  close(1)
+  alpha=pi/5
+  r=dsqrt((l**2-c**2)/(2*(1-dcos(alpha))))
+  write(*,*)alpha
   open(1,file='geometria.dat')
   open(2,file='geom.dat')
-  allocate(cord(4,3))
-  do i=1,4
-     if(i==1)then
-        cord(i,1)=l*dcos(alpha)
-        cord(i,2)=0.d0
-        cord(i,3)=0.d0
-     endif
-     if(i==2)then
-        cord(i,1)=0.d0
-        cord(i,2)=l*dcos(alpha)
-        cord(i,3)=l*dsin(alpha)
-     endif
-     if(i==3)then
-        cord(i,1)=-l*dcos(alpha)
-        cord(i,2)=0.d0
-        cord(i,3)=2*l*dsin(alpha)
-     endif
-     if(i==4)then
-        cord(i,1)=0.d0
-        cord(i,2)=-l*dsin(alpha)
-        cord(i,3)=3*l*dsin(alpha)
-     endif
+  allocate(cord(nsiti,3), dist(nsiti,nsiti))
+  do i=1,nsiti
+     cord(i,1)=r*dcos(pi/2-(i-1)*alpha)
+     cord(i,2)=r*dcos((i-1)*alpha)
+     cord(i,3)=c*(i-1)
      write(1,*) i, cord(i,1), cord(i,2), cord(i,3)
      write(2,*) cord(i,1), cord(i,2), cord(i,3)
   enddo
-  
   close(1)
-end program geometria
+
+end program elica
